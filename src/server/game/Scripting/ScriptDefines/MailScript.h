@@ -24,6 +24,7 @@
 enum MailHook
 {
     MAILHOOK_ON_BEFORE_MAIL_DRAFT_SEND_MAIL_TO,
+    MAILHOOK_ON_MAIL_EXPIRY_DELAY,
     MAILHOOK_END
 };
 
@@ -35,6 +36,10 @@ protected:
 public:
     // Called before mail is sent
     virtual void OnBeforeMailDraftSendMailTo(MailDraft* /*mailDraft*/, MailReceiver const& /*receiver*/, MailSender const& /*sender*/, MailCheckMask& /*checked*/, uint32& /*deliver_delay*/, uint32& /*custom_expiration*/, bool& /*deleteMailItemsFromDB*/, bool& /*sendMail*/) { }
+
+    // Called when the expiry of a mail has been worked out by the core's rules (cash on delivery, game master, auction, battle master, default): the script may
+    // replace the delay (in seconds)
+    virtual void OnMailExpiryDelay(MailDraft* /*mailDraft*/, MailSender const& /*sender*/, uint32& /*expireDelay*/) { }
 };
 
 #endif

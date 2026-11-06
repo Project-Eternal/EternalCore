@@ -7613,13 +7613,16 @@ void ObjectMgr::SetHighestGuids()
     if (result)
         sGuildMgr->SetNextGuildId((*result)[0].Get<uint32>() + 1);
 
+    // the rows a game master adds (the world's own changes) are numbered from World.CustomIdStart on, far above the world database's identifiers
+    uint32 const customIdStart = sConfigMgr->GetOption<uint32>("World.CustomIdStart", 0);
+
     result = WorldDatabase.Query("SELECT MAX(guid) FROM creature");
     if (result)
-        _creatureSpawnId = (*result)[0].Get<uint32>() + 1;
+        _creatureSpawnId = std::max<uint32>((*result)[0].Get<uint32>() + 1, customIdStart);
 
     result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject");
     if (result)
-        _gameObjectSpawnId = (*result)[0].Get<uint32>() + 1;
+        _gameObjectSpawnId = std::max<uint32>((*result)[0].Get<uint32>() + 1, customIdStart);
 }
 
 uint32 ObjectMgr::GenerateAuctionID()
@@ -9827,6 +9830,7 @@ bool ObjectMgr::AddGameTele(GameTele& tele)
 
     // use next
     ++new_id;
+    new_id = std::max<uint32>(new_id, sConfigMgr->GetOption<uint32>("World.CustomIdStart", 0));
 
     if (!Utf8toWStr(tele.name, tele.wnameLow))
         return false;

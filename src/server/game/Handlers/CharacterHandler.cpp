@@ -26,6 +26,7 @@
 #include "CharacterPackets.h"
 #include "Chat.h"
 #include "Common.h"
+#include "Config.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
 #include "GitRevision.h"
@@ -128,6 +129,8 @@ bool LoginQueryHolder::Initialize()
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_SOCIALLIST);
     stmt->SetData(0, rawGUID);
+    stmt->SetData(1, static_cast<uint8>(PlayerSocial::AccountWide() ? 1 : 0));
+    stmt->SetData(2, rawGUID);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOAD_SOCIAL_LIST, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_HOMEBIND);
@@ -376,8 +379,10 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
         return;
     }
 
-    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHECK_NAME);
+    // Characters.NameCheckIgnoreAccount: the characters of that account (mod-p2p's rows of players met on the network) do not take names
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHECK_NAME_OF_OTHERS);
     stmt->SetData(0, createInfo->Name);
+    stmt->SetData(1, sConfigMgr->GetOption<uint32>("Characters.NameCheckIgnoreAccount", 0));
 
     _queryProcessor.AddCallback(CharacterDatabase.AsyncQuery(stmt)
     .WithChainingPreparedCallback([this](QueryCallback& queryCallback, PreparedQueryResult result)
@@ -540,10 +545,16 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
             }
 
             // Check name uniqueness in the same step as saving to database
-            if (sCharacterCache->GetCharacterGuidByName(createInfo->Name))
+            if (ObjectGuid sameName = sCharacterCache->GetCharacterGuidByName(createInfo->Name))
             {
-                SendCharCreate(CHAR_CREATE_NAME_IN_USE);
-                return;
+                // (the characters of Characters.NameCheckIgnoreAccount are the other players' on the network: the name is renumbered for them)
+                CharacterCacheEntry const* sameNameEntry = sCharacterCache->GetCharacterCacheByGuid(sameName);
+                uint32 ignoredAccount = sConfigMgr->GetOption<uint32>("Characters.NameCheckIgnoreAccount", 0);
+                if (!ignoredAccount || !sameNameEntry || sameNameEntry->AccountId != ignoredAccount)
+                {
+                    SendCharCreate(CHAR_CREATE_NAME_IN_USE);
+                    return;
+                }
             }
 
             std::shared_ptr<Player> newChar(new Player(this), [](Player* ptr)

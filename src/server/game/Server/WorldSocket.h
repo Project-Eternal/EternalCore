@@ -25,6 +25,7 @@
 #include "Util.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
+#include <atomic>
 #include <boost/asio/ip/tcp.hpp>
 
 using boost::asio::ip::tcp;
@@ -113,6 +114,8 @@ private:
     void SendPacketAndLogOpcode(WorldPacket const& packet);
     void HandleSendAuthSession();
     void HandleAuthSession(WorldPacket& recvPacket);
+    void StartAuthSession(std::shared_ptr<ClientAuthSession> authSession);
+    void ContinueHeldAuthSession();
     void HandleAuthSessionCallback(std::shared_ptr<ClientAuthSession> authSession, PreparedQueryResult result);
     void LoadSessionPermissionsCallback(PreparedQueryResult result);
     void SendAuthResponseError(uint8 code);
@@ -136,6 +139,11 @@ private:
 
     QueryCallbackProcessor _queryProcessor;
     std::string _ipCountry;
+
+    // A login that names another realm than the one the server is bound to waits here until the world has changed realm (World.RealmSwitch.Enable). The
+    // world thread sets the result, the socket's thread (Update) goes on with the login or refuses it.
+    std::shared_ptr<ClientAuthSession> _heldAuthSession;
+    std::atomic<uint8> _realmSwitchResult{0};   // 0 not yet, 1 the world is bound to the realm, 2 it could not be
 
     bool _loggingPackets;
 };

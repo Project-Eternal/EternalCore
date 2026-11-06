@@ -71,6 +71,7 @@ public:
 
     void LoadPetitions();
     void LoadSignatures();
+    void Unload();   // forgets the petitions and their signatures
 
     // Petitions
     void AddPetition(ObjectGuid petitionGUID, ObjectGuid ownerGuid, std::string const& name, uint8 type, uint32 petitionId);

@@ -29,6 +29,7 @@
 #include "IVMapMgr.h"
 #include "LFGMgr.h"
 #include "MapGrid.h"
+#include "MapDataProvider.h"
 #include "MapInstanced.h"
 #include "Metric.h"
 #include "MiscPackets.h"
@@ -437,6 +438,9 @@ void Map::Update(const uint32 t_diff, const uint32 s_diff, bool  /*thread*/)
 {
     if (t_diff)
         _mapCollisionData.GetDynamicTree().update(t_diff);
+
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        provider->UpdateNavMesh(GetId(), t_diff);
 
     // Update world sessions and players
     for (m_mapRefIter = m_mapRefMgr.begin(); m_mapRefIter != m_mapRefMgr.end(); ++m_mapRefIter)
@@ -1158,29 +1162,38 @@ float Map::GetWaterOrGroundLevel(uint32 phasemask, float x, float y, float z, fl
     return VMAP_INVALID_HEIGHT_VALUE;
 }
 
+// the ray hits the game object's model (GameObjectModel from vmaps, else the map data provider's answer, if any)
+static bool IntersectTransportModel(GameObject const* go, G3D::Ray const& r, float& dist, uint32 phase)
+{
+    if (go->m_model)
+        return go->m_model->intersectRay(r, dist, false, phase, VMAP::ModelIgnoreFlags::Nothing);
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->IntersectGameObject(*go, r.origin().x, r.origin().y, r.origin().z, r.direction().x, r.direction().y, r.direction().z, dist);
+    return false;
+}
+
 Transport* Map::GetTransportForPos(uint32 phase, float x, float y, float z, WorldObject* worldobject)
 {
     G3D::Vector3 v(x, y, z + 2.0f);
     G3D::Ray r(v, G3D::Vector3(0, 0, -1));
     for (TransportsContainer::const_iterator itr = _transports.begin(); itr != _transports.end(); ++itr)
-        if ((*itr)->IsInWorld() && (*itr)->GetExactDistSq(x, y, z) < 75.0f * 75.0f && (*itr)->m_model)
+        if ((*itr)->IsInWorld() && (*itr)->GetExactDistSq(x, y, z) < 75.0f * 75.0f)
         {
             float dist = 30.0f;
-            bool hit = (*itr)->m_model->intersectRay(r, dist, false, phase, VMAP::ModelIgnoreFlags::Nothing);
+            bool hit = IntersectTransportModel(*itr, r, dist, phase);
             if (hit)
                 return *itr;
         }
 
     if (worldobject)
         if (GameObject* staticTrans = worldobject->FindNearestGameObjectOfType(GAMEOBJECT_TYPE_TRANSPORT, 75.0f))
-            if (staticTrans->m_model)
-            {
-                float dist = 10.0f;
-                bool hit = staticTrans->m_model->intersectRay(r, dist, false, phase, VMAP::ModelIgnoreFlags::Nothing);
-                if (hit)
-                    if (GetHeight(phase, x, y, z, true, 30.0f) < (v.z - dist + 1.0f))
-                        return staticTrans->ToTransport();
-            }
+        {
+            float dist = 10.0f;
+            bool hit = IntersectTransportModel(staticTrans, r, dist, phase);
+            if (hit)
+                if (GetHeight(phase, x, y, z, true, 30.0f) < (v.z - dist + 1.0f))
+                    return staticTrans->ToTransport();
+        }
 
     return nullptr;
 }

@@ -1463,8 +1463,13 @@ void GameObject::SetGoArtKit(uint8 artkit, GameObject* go, ObjectGuid::LowType l
         const_cast<GameObjectData*>(data)->artKit = artkit;
 }
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
 void GameObject::SwitchDoorOrButton(bool activate, bool alternative /* = false */)
 {
+    if (ReactionEffect && !ReactionEffect(this, 11))
+        return;
+
     if (activate)
         SetGameObjectFlag(GO_FLAG_IN_USE);
     else
@@ -2518,6 +2523,9 @@ void GameObject::SetLootState(LootState state, Unit* unit)
 
 void GameObject::SetGoState(GOState state)
 {
+    if (ReactionEffect && !ReactionEffect(this, 11))
+        return;
+
     SetByteValue(GAMEOBJECT_BYTES_1, 0, state);
 
     sScriptMgr->OnGameObjectStateChanged(this, state);

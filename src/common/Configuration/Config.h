@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -57,6 +58,10 @@ public:
 
     bool Reload();
 
+    /// The settings of a realm (World.RealmSwitch.Enable): a file of the modules' configuration folder that is read after the others (its keys win), by every
+    /// load and reload. Empty: none. It takes effect with the next Reload.
+    void SetRealmConfigFile(std::string file);
+
     /// Overrides configuration with environment variables and returns overridden keys
     std::vector<std::string> OverrideWithEnvVariablesIfAny();
 
@@ -82,6 +87,7 @@ private:
     bool dryRun = false;
 
     std::vector<std::string /*config variant*/> _moduleConfigFiles;
+    std::string _realmConfigFile;
 };
 
 class ConfigException : public std::length_error

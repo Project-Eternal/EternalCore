@@ -70,7 +70,7 @@ These control the version of Winsock used by G3D.
 #elif  defined(__FreeBSD__) || defined(__OpenBSD__)
     #define G3D_FREEBSD
     #define G3D_LINUX
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__EMSCRIPTEN__)
     #define G3D_LINUX
 #elif defined(__APPLE__)
     #define G3D_LINUX

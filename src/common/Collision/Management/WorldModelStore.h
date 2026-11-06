@@ -21,7 +21,9 @@
 #include "WorldModel.h"
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 class WorldModelStore
 {
@@ -33,6 +35,10 @@ public:
     }
 
     std::shared_ptr<VMAP::WorldModel> AcquireModelInstance(std::string const& basepath, std::string const& filename, uint32 flags);
+
+    // forgets the models nothing else holds (no map's tree and no instance uses them any more): they are loaded again when asked for
+    // (names: the files of the ones forgotten, if given)
+    uint32 ReleaseUnused(std::vector<std::string>* names = nullptr);
 
 private:
     typedef std::unordered_map<std::string, std::shared_ptr<VMAP::WorldModel>> ModelFileMap;

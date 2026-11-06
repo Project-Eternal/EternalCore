@@ -18,11 +18,12 @@
 #include "M2Stores.h"
 #include "Containers.h"
 #include "DBCStores.h"
+#include "DataFileSource.h"
 #include "Log.h"
 #include "M2Structure.h"
 #include "World.h"
 #include <boost/filesystem/path.hpp>
-#include <fstream>
+#include <cstring>
 
 typedef std::vector<FlyByCamera> FlyByCameraCollection;
 std::unordered_map<uint32, FlyByCameraCollection> sFlyByCameraStore;
@@ -192,45 +193,25 @@ void LoadM2Cameras(std::string const& dataPath)
         // Replace mdx to .m2
         filename.replace_extension("m2");
 
-        std::ifstream m2file(filename.string().c_str(), std::ios::in | std::ios::binary);
-        if (!m2file.is_open())
+        // the whole file (DataFileSource: a module may give it from elsewhere than the disk)
+        std::vector<uint8> buffer;
+        if (!DataFileSource::Read(filename.string(), buffer))
             continue;
-
-        // Get file size
-        m2file.seekg(0, std::ios::end);
-        std::streamoff fileSize = m2file.tellg();
+        std::streamoff fileSize = buffer.size();
 
         // Reject if not at least the size of the header
         if (static_cast<uint32>(fileSize) < sizeof(M2Header))
         {
             LOG_ERROR("server.loading", "Camera file {} is damaged. File is smaller than header size", filename.string());
-            m2file.close();
             continue;
         }
-
-        // Read 4 bytes (signature)
-        m2file.seekg(0, std::ios::beg);
-        char fileCheck[5];
-        m2file.read(fileCheck, 4);
-        fileCheck[4] = 0;
 
         // Check file has correct magic (MD20)
-        if (strcmp(fileCheck, "MD20"))
+        if (memcmp(buffer.data(), "MD20", 4))
         {
             LOG_ERROR("server.loading", "Camera file {} is damaged. File identifier not found", filename.string());
-            m2file.close();
             continue;
         }
-
-        // Now we have a good file, read it all into a vector of char's, then close the file.
-        std::vector<char> buffer(fileSize);
-        m2file.seekg(0, std::ios::beg);
-        if (!m2file.read(buffer.data(), fileSize))
-        {
-            m2file.close();
-            continue;
-        }
-        m2file.close();
 
         // Read header
         M2Header const* header = reinterpret_cast<M2Header const*>(buffer.data());

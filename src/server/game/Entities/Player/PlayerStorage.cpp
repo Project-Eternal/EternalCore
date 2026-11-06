@@ -66,6 +66,7 @@
 #include "UpdateFieldFlags.h"
 #include "Util.h"
 #include "World.h"
+#include "WorldSession.h"
 #include "WorldPacket.h"
 
 /// @todo: this import is not necessary for compilation and marked as unused by the IDE
@@ -5594,6 +5595,7 @@ bool Player::LoadFromDB(ObjectGuid playerGuid, CharacterDatabaseQueryHolder cons
     _LoadActions(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_ACTIONS));
 
     m_social = sSocialMgr->LoadFromDB(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_SOCIAL_LIST), GetGUID());
+    m_social->SetAccountId(GetSession()->GetAccountId());
 
     // check PLAYER_CHOSEN_TITLE compatibility with PLAYER__FIELD_KNOWN_TITLES
     // note: PLAYER__FIELD_KNOWN_TITLES updated at quest status loaded
@@ -7237,8 +7239,17 @@ void Player::SaveToDB(bool create, bool logout)
     CharacterDatabase.CommitTransaction(trans);
 }
 
+bool Player::IsMirror() const
+{
+    return m_session && m_session->IsHeadless();
+}
+
 void Player::SaveToDB(CharacterDatabaseTransaction trans, bool create, bool logout)
 {
+    // the mirror of another server's player is not ours to save: its row says only that the character exists (mod-p2p)
+    if (IsMirror() && !create)
+        return;
+
     // delay auto save at any saves (manual, in code, or autosave)
     m_nextSave = sWorld->getIntConfig(CONFIG_INTERVAL_SAVE);
 

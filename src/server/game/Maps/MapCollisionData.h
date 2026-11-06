@@ -48,10 +48,19 @@ protected:
     uint32 _mapId;
 };
 
+// (the questions about the game objects' models ask the map data provider instead, if one is installed: MapDataProvider)
 class DynamicVMapCollisionData : public DynamicMapTree
 {
 public:
+    explicit DynamicVMapCollisionData(uint32 mapId) : _mapId(mapId) {}
+
     bool GetObjectHitPos(uint32 phasemask, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist) const;
+    [[nodiscard]] bool isInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, uint32 phasemask, VMAP::ModelIgnoreFlags ignoreFlags) const;
+    [[nodiscard]] float getHeight(float x, float y, float z, float maxSearchDist, uint32 phasemask) const;
+    bool GetAreaAndLiquidData(float x, float y, float z, uint32 phasemask, Optional<uint8> reqLiquidType, VMAP::AreaAndLiquidData& data) const;
+
+private:
+    uint32 _mapId;
 };
 
 class MMapData
@@ -67,6 +76,8 @@ protected:
     std::shared_ptr<dtNavMesh> _navMesh;
     // navMeshQuery is not thread safe and needs its own instance per map
     MMAP::ManagedNavMeshQuery _navMeshQuery;
+    // the mesh is the map data provider's (MapDataProvider::GetNavMesh): no mmaps/ tiles are loaded into it
+    bool _fromProvider = false;
 };
 
 // Map collision data holders (dynamic&static vmap, mmaps)

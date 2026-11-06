@@ -2,6 +2,7 @@
 #include "GridDefines.h"
 #include "GridTerrainData.h"
 #include "Log.h"
+#include "MapDataProvider.h"
 #include "MapDefines.h"
 #include <filesystem>
 #include <G3D/Ray.h>
@@ -12,6 +13,16 @@ uint16 const holetab_v[4] = { 0x000F, 0x00F0, 0x0F00, 0xF000 };
 GridTerrainData::GridTerrainData()
 {
     _gridGetHeight = &GridTerrainData::getHeightFromFlat;
+}
+
+GridTerrainData::GridTerrainData(MapDataProvider* provider, uint32 mapId) : _provider(provider), _providerMapId(mapId)
+{
+    _gridGetHeight = &GridTerrainData::getHeightFromProvider;
+}
+
+float GridTerrainData::getHeightFromProvider(float x, float y) const
+{
+    return _provider->GetTerrainHeight(_providerMapId, x, y);
 }
 
 TerrainMapDataReadResult GridTerrainData::Load(std::string const& mapFileName)
@@ -213,6 +224,9 @@ bool GridTerrainData::LoadHolesData(std::ifstream& fileStream, uint32 const offs
 
 uint16 GridTerrainData::getArea(float x, float y) const
 {
+    if (_provider)
+        return _provider->GetTerrainArea(_providerMapId, x, y);
+
     if (!_loadedAreaData)
         return 0;
 
@@ -476,6 +490,9 @@ bool GridTerrainData::isHole(int row, int col) const
 
 float GridTerrainData::getMinHeight(float x, float y) const
 {
+    if (_provider)
+        return _provider->GetTerrainMinHeight(_providerMapId, x, y);
+
     if (!_loadedHeightData || !_loadedHeightData->minHeightPlanes)
         return MIN_HEIGHT;
 
@@ -506,6 +523,9 @@ float GridTerrainData::getMinHeight(float x, float y) const
 
 float GridTerrainData::getLiquidLevel(float x, float y) const
 {
+    if (_provider)
+        return _provider->GetTerrainLiquidLevel(_providerMapId, x, y);
+
     if (!_loadedLiquidData)
         return INVALID_HEIGHT;
 
@@ -529,6 +549,9 @@ float GridTerrainData::getLiquidLevel(float x, float y) const
 // Get water state on map
 LiquidData const GridTerrainData::GetLiquidData(float x, float y, float z, float collisionHeight, Optional<uint8> ReqLiquidType) const
 {
+    if (_provider)
+        return _provider->GetTerrainLiquidData(_providerMapId, x, y, z, collisionHeight, ReqLiquidType);
+
     LiquidData liquidData;
     liquidData.Status = LIQUID_MAP_NO_WATER;
 

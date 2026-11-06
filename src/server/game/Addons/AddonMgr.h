@@ -59,6 +59,7 @@ struct BannedAddon
 namespace AddonMgr
 {
     void LoadFromDB();
+    void Unload();   // forgets the known and the banned addons
     void SaveAddon(AddonInfo const& addon);
     SavedAddon const* GetAddonInfo(std::string const& name);
 

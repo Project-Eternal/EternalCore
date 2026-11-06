@@ -553,7 +553,8 @@ void Unit::Update(uint32 p_time)
         // Check UNIT_STATE_MELEE_ATTACKING or UNIT_STATE_CHASE (without UNIT_STATE_FOLLOW in this case) so pets can reach far away
         // targets without stopping half way there and running off.
         // These flags are reset after target dies or another command is given.
-        if (!GetCombatManager().HasCombat())
+        // (the mirror of another server's player is in combat as its own server says: a module sets the flag, the timer must not clear it)
+        if (!GetCombatManager().HasCombat() && !(IsPlayer() && ToPlayer()->IsMirror()))
         {
             // m_CombatTimer set at aura start and it will be freeze until aura removing
             if (m_CombatTimer <= p_time)
@@ -6847,8 +6848,20 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
     return entry;
 }
 
+// Set by a module (mod-p2p): asked before an effect is applied to an object while the reaction to a player's act is evaluated. kind 1 aura, 2 power, 3 health, 4 faction,
+// 5 movement, 6 teleport, 7 summon (the object is the summoner), 8 object spawned. False: another server owns what the effect changes (a character of another server, a
+// creature that another server decides), so it is not applied here
+AC_GAME_API bool (*ReactionEffect)(WorldObject const* object, int kind) = nullptr;
+
+// Set by a module (mod-p2p): told before a spell of a creature moves or drains a player that is another server's character (1 knockback: x, y, speed xy, speed z; 2 jump or pull:
+// x, y, z, speed xy, speed z; 3 near teleport: x, y, z, orientation; 4 power: type, change). False: the module sent it to that character's server, it is not applied here.
+AC_GAME_API bool (*EffectOnMirror)(Unit* target, int kind, float a, float b, float c, float d, float e) = nullptr;
+
 void Unit::SetFaction(uint32 faction)
 {
+    if (ReactionEffect && !ReactionEffect(this, 4))
+        return;
+
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, faction);
     if (IsCreature())
         ToCreature()->UpdateMoveInLineOfSightState();
@@ -7070,6 +7083,9 @@ bool Unit::IsNeutralToAll() const
     return my_faction->IsNeutralToAll();
 }
 
+// Set by a module: asked when a puppet creature is about to attack; true when the module took the engagement over (the attack is not made here)
+AC_GAME_API bool (*PuppetEngage)(Creature* puppet, Unit* victim) = nullptr;
+
 bool Unit::Attack(Unit* victim, bool meleeAttack)
 {
     if (!victim || victim == this)
@@ -7099,6 +7115,10 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
     {
         return false;
     }
+
+    // a puppet (a creature that another server decides) never engages by itself: a module takes the engagement to the server that decides it
+    if (creature && creature->IsPuppet() && PuppetEngage && PuppetEngage(creature, victim))
+        return false;
 
     //if (HasUnitFlag(UNIT_FLAG_PACIFIED)) // pussywizard: why having this flag prevents from entering combat? it should just prevent melee attack
     //    return false;
@@ -10724,6 +10744,9 @@ bool Unit::_IsValidAssistTarget(Unit const* target, SpellInfo const* bySpell) co
 
 int32 Unit::ModifyHealth(int32 dVal)
 {
+    if (ReactionEffect && !ReactionEffect(this, 3))
+        return 0;
+
     int32 gain = 0;
 
     if (dVal == 0)
@@ -10782,6 +10805,11 @@ int32 Unit::GetHealthGain(int32 dVal)
 // returns negative amount on power reduction
 int32 Unit::ModifyPower(Powers power, int32 dVal, bool withPowerUpdate /*= true*/)
 {
+    if (EffectOnMirror && !EffectOnMirror(this, 4, float(power), float(dVal), 0.0f, 0.0f, 0.0f))
+        return 0;
+    if (ReactionEffect && !ReactionEffect(this, 2))
+        return 0;
+
     if (dVal == 0)
         return 0;
 
@@ -11952,6 +11980,9 @@ void Unit::SetLevel(uint8 lvl, bool showLevelChange)
 
 void Unit::SetHealth(uint32 val)
 {
+    if (ReactionEffect && !ReactionEffect(this, 3))
+        return;
+
     if (getDeathState() == DeathState::JustDied)
         val = 0;
     else if (IsPlayer() && getDeathState() == DeathState::Dead)
@@ -12040,6 +12071,9 @@ void Unit::SetMaxHealth(uint32 val)
 
 void Unit::SetPower(Powers power, uint32 val, bool withPowerUpdate /*= true*/, bool fromRegenerate /* = false */)
 {
+    if (ReactionEffect && !ReactionEffect(this, 2))
+        return;
+
     if (!fromRegenerate && GetPower(power) == val)
         return;
 
@@ -12769,6 +12803,9 @@ void Unit::RecalculateObjectScale()
 
 void Unit::SetDisplayId(uint32 modelId, float displayScale /*=1.f*/)
 {
+    if (ReactionEffect && !ReactionEffect(this, 9))
+        return;
+
     SetUInt32Value(UNIT_FIELD_DISPLAYID, modelId);
 
     // Set Gender by modelId
@@ -14749,6 +14786,9 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
 
 Aura* Unit::AddAura(uint32 spellId, Unit* target)
 {
+    if (ReactionEffect && target && !ReactionEffect(target, 1))
+        return nullptr;
+
     if (!target)
         return nullptr;
 
@@ -14764,6 +14804,9 @@ Aura* Unit::AddAura(uint32 spellId, Unit* target)
 
 Aura* Unit::AddAura(SpellInfo const* spellInfo, uint8 effMask, Unit* target)
 {
+    if (ReactionEffect && target && !ReactionEffect(target, 1))
+        return nullptr;
+
     if (!spellInfo)
         return nullptr;
 
@@ -14997,6 +15040,11 @@ void Unit::UpdateObjectVisibility(bool forced, bool /*fromUpdate*/)
 
 void Unit::KnockbackFrom(float x, float y, float speedXY, float speedZ)
 {
+    if (EffectOnMirror && !EffectOnMirror(this, 1, x, y, speedXY, speedZ, 0.0f))
+        return;
+    if (ReactionEffect && !ReactionEffect(this, 5))
+        return;
+
     Player* player = ToPlayer();
     if (!player)
     {
@@ -15579,6 +15627,11 @@ void Unit::NearTeleportTo(Position& pos, bool casting /*= false*/, bool vehicleT
 
 void Unit::NearTeleportTo(float x, float y, float z, float orientation, bool casting /*= false*/, bool vehicleTeleport /*= false*/, bool withPet /*= false*/, bool removeTransport /*= false*/)
 {
+    if (EffectOnMirror && !EffectOnMirror(this, 3, x, y, z, orientation, 0.0f))
+        return;
+    if (ReactionEffect && !ReactionEffect(this, 6))
+        return;
+
     DisableSpline();
     if (IsPlayer())
         ToPlayer()->TeleportTo(GetMapId(), x, y, z, orientation, TELE_TO_NOT_LEAVE_COMBAT | (removeTransport ? 0 : TELE_TO_NOT_LEAVE_TRANSPORT) | TELE_TO_NOT_UNSUMMON_PET | (casting ? TELE_TO_SPELL : 0) | (vehicleTeleport ? TELE_TO_NOT_LEAVE_VEHICLE : 0) | (withPet ? TELE_TO_WITH_PET : 0));

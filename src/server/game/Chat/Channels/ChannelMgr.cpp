@@ -47,6 +47,22 @@ ChannelMgr* ChannelMgr::forTeam(TeamId teamId)
     return nullptr;
 }
 
+void ChannelMgr::UnloadChannels()
+{
+    // (both teams, or the one, if the sides share their channels)
+    for (TeamId team : { TEAM_ALLIANCE, TEAM_HORDE })
+        if (ChannelMgr* mgr = forTeam(team))
+        {
+            for (auto const& [name, channel] : mgr->channels)
+                delete channel;
+
+            mgr->channels.clear();
+        }
+
+    channels_rights.clear();
+    _channelIdMax = 0;
+}
+
 void ChannelMgr::LoadChannels()
 {
     uint32 oldMSTime = getMSTime();

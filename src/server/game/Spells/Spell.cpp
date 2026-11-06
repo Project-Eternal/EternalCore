@@ -62,6 +62,21 @@
 #include "IVMapMgr.h"
 #include "VMapMgr2.h"
 
+// Set by a module (mod-p2p): follows the spells of the reaction to a player's act (what a script casts, what a spell sets off). what: 0 spell made, 1 spell destroyed,
+// 2/3 the effects of a spell on one target begin/end, 4/5 the reaction of the target's AI to the hit begins/ends, 6/7 the spell go packet is sent (begins/ends)
+AC_GAME_API void (*ReactionSpell)(Spell* spell, int what) = nullptr;
+
+namespace
+{
+    struct ReactionSpellGuard
+    {
+        ReactionSpellGuard(Spell* s, int in, int out) : _spell(s), _out(out) { if (ReactionSpell) ReactionSpell(_spell, in); }
+        ~ReactionSpellGuard() { if (ReactionSpell) ReactionSpell(_spell, _out); }
+        Spell* _spell;
+        int _out;
+    };
+}
+
 extern pEffect SpellEffects[TOTAL_SPELL_EFFECTS];
 
 SpellDestination::SpellDestination()
@@ -731,10 +746,16 @@ Spell::Spell(WorldObject* caster, SpellInfo const* info, TriggerCastFlags trigge
     _spellTargetsSelected = false;
 
     m_weaponItem = nullptr;
+
+    if (ReactionSpell)
+        ReactionSpell(this, 0);
 }
 
 Spell::~Spell()
 {
+    if (ReactionSpell)
+        ReactionSpell(this, 1);
+
     // FindMap() check: pending spell events are destroyed after the caster has left the map,
     // where resolving a unit-summoned caster's owner through ObjectAccessor would assert
     if (Player* modOwner = (m_caster && m_caster->FindMap()) ? m_caster->GetSpellModOwner() : nullptr)
@@ -2630,6 +2651,8 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
     if (!target || target->processed)
         return;
 
+    ReactionSpellGuard reactionGuard(this, 2, 3);
+
     target->processed = true;                               // Target checked in apply effects procedure
 
     // Get mask of effects for target
@@ -2751,6 +2774,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
             if (missInfo2 != SPELL_MISS_MISS)
                 m_caster->SendSpellMiss(spellHitTarget, m_spellInfo->Id, missInfo2);
             m_damage = 0;
+            m_healing = 0;
             spellHitTarget = nullptr;
 
             // Xinef: if missInfo2 is MISS_EVADE, override base missinfo data
@@ -3064,7 +3088,10 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         if (spellHitTarget->IsCreature())
         {
             if (spellHitTarget->ToCreature()->IsAIEnabled)
+            {
+                ReactionSpellGuard reactionAiGuard(this, 4, 5);
                 spellHitTarget->ToCreature()->AI()->SpellHit(unitCaster, m_spellInfo);
+            }
         }
 
         if (unitCaster && unitCaster->IsCreature() && unitCaster->ToCreature()->IsAIEnabled)
@@ -3085,8 +3112,14 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
     }
 }
 
+// Set by a module (mod-p2p): false while the reaction to another player's act is evaluated and the unit is a character or creature of another server (its owner applies the effects)
+AC_GAME_API bool (*ReactionSpellHit)(Spell* spell, Unit* unit) = nullptr;
+
 SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleAura)
 {
+    if (ReactionSpellHit && !ReactionSpellHit(this, unit))
+        return SPELL_MISS_MISS;
+
     Unit* unitCaster = m_caster->ToUnit();
     if (!unit || !effectMask)
         return SPELL_MISS_EVADE;
@@ -4945,6 +4978,7 @@ void Spell::SendSpellStart()
 
 void Spell::SendSpellGo()
 {
+    ReactionSpellGuard reactionGoGuard(this, 6, 7);
     Unit* unitCaster = m_caster->ToUnit();
     // not send invisible spell casting
     if (!IsNeedSendToClient(true))

@@ -467,6 +467,11 @@ ConfigMgr* ConfigMgr::instance()
     return &instance;
 }
 
+void ConfigMgr::SetRealmConfigFile(std::string file)
+{
+    _realmConfigFile = std::move(file);
+}
+
 bool ConfigMgr::Reload()
 {
     if (!LoadAppConfigs(true))
@@ -750,8 +755,16 @@ bool ConfigMgr::LoadAppConfigs(bool isReload /*= false*/)
 
 bool ConfigMgr::LoadModulesConfigs(bool isReload /*= false*/, bool isNeedPrintInfo /*= true*/)
 {
+    // the file of the realm comes last (its keys win) and may be missing
+    auto loadRealmFile = [this, isReload]()
+    {
+        if (!_realmConfigFile.empty())
+            LoadAdditionalFile(GetConfigPath() + "modules/" + _realmConfigFile, true, isReload);
+    };
+
     if (_additonalFiles.empty())
     {
+        loadRealmFile();
         // Send successful load if no found files
         return true;
     }
@@ -772,6 +785,8 @@ bool ConfigMgr::LoadModulesConfigs(bool isReload /*= false*/, bool isNeedPrintIn
         if (isExistConfig)
             _moduleConfigFiles.emplace_back(fileName);
     }
+
+    loadRealmFile();
 
     if (isNeedPrintInfo)
     {

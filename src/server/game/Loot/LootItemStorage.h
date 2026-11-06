@@ -57,6 +57,7 @@ public:
     static LootItemStorage* instance();
 
     void LoadStorageFromDB();
+    void Unload();   // forgets the stored loot
     void RemoveEntryFromDB(ObjectGuid containerGUID, uint32 itemid, uint32 count, uint32 itemIndex);
 
     void AddNewStoredLoot(Loot* loot, Player* player);

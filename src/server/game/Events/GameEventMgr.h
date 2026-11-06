@@ -115,6 +115,11 @@ public:
     bool IsActiveEvent(uint16 eventId) { return (_activeEvents.find(eventId) != _activeEvents.end()); }
     uint32 StartSystem();
     void Initialize();
+    // What the characters database keeps of the events: when a world event started and how far its conditions are. LoadRealmData reads it (it comes after
+    // LoadFromDB when the realm can change, World.RealmSwitch.Enable); UnloadRealmData stops every event that runs, without saving, and puts the events back to
+    // what the world database says.
+    void LoadRealmData();
+    void UnloadRealmData();
     void StartInternalEvent(uint16 event_id);
     bool StartEvent(uint16 event_id, bool overwrite = false);
     void StopEvent(uint16 event_id, bool overwrite = false);

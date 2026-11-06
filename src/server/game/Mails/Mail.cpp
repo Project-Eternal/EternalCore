@@ -229,6 +229,8 @@ void MailDraft::SendMailTo(CharacterDatabaseTransaction trans, MailReceiver cons
         expire_delay = pSender && pSender->GetSession()->GetSecurity() ? 90 * DAY : 30 * DAY;
     }
 
+    sScriptMgr->OnMailExpiryDelay(this, sender, expire_delay);
+
     time_t expire_time = deliver_time + expire_delay;
 
     // Add to DB

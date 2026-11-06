@@ -261,6 +261,27 @@ void InstanceSaveMgr::DeleteInstanceSavedData(uint32 instanceId)
     }
 }
 
+void InstanceSaveMgr::Unload()
+{
+    lock_instLists = true;   // (the saves are deleted below, not by their last unbinding)
+    for (auto const& [instanceId, save] : m_instanceSaveById)
+    {
+        save->m_playerList.clear();
+        delete save;
+    }
+
+    m_instanceSaveById.clear();
+    m_resetTimeByMapDifficulty.clear();
+    m_resetExtendedTimeByMapDifficulty.clear();
+    m_resetTimeQueue.clear();
+
+    for (auto const& [guid, binds] : playerBindStorage)
+        delete binds;
+
+    playerBindStorage.clear();
+    lock_instLists = false;
+}
+
 void InstanceSaveMgr::LoadInstances()
 {
     uint32 oldMSTime = getMSTime();

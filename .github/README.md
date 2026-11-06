@@ -15,6 +15,17 @@
 [![tools-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/tools_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/tools_build.yml?query=branch%3Amaster)
 [![dashboard-ci](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/dashboard-ci.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/dashboard-ci.yml?query=branch%3Amaster)
 
+## This fork: EternalCore
+
+This is the AzerothCore of **EternalCore**, the server that [WoW Eternal](https://github.com/Project-Eternal/Client) runs inside its web page. The changes on top of AzerothCore are small, and inert in a normal build:
+
+* Building for WebAssembly with [Emscripten](https://emscripten.org/) (CMake, g3dlite, SFMT).
+* Replaceable sources of the client's data files and of the world's terrain, collision and navigation meshes (`DataFileSource`, `MapDataProvider`), used by [mod-wowcontroller](https://github.com/Project-Eternal/mod-wowcontroller).
+* Seams for worlds shared between servers (mirrors of other servers' players, creatures decided elsewhere, a clock correction, account-wide friends lists, binding the characters to one realm), used by [mod-p2p](https://github.com/Project-Eternal/mod-p2p).
+* The build option `ACORE_PRODUCT_NAME`: the product name of the version string and the startup banner.
+
+The database layer on SQLite and the scripts of the WebAssembly build are part of the WoW Eternal repository. Everything below is AzerothCore's own description.
+
 ## Introduction
 
 AzerothCore is an open-source game server application and framework designed for hosting massively multiplayer online role-playing games (MMORPGs). It is based on the popular MMORPG World of Warcraft (WoW) and seeks to recreate the gameplay experience of the original game from patch 3.3.5a.

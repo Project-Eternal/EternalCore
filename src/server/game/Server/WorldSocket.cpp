@@ -216,6 +216,9 @@ bool WorldSocket::Update()
     if (!BaseSocket::Update())
         return false;
 
+    if (_heldAuthSession && _realmSwitchResult.load())
+        ContinueHeldAuthSession();
+
     _queryProcessor.ProcessReadyCallbacks();
 
     return true;
@@ -546,6 +549,38 @@ void WorldSocket::HandleAuthSession(WorldPacket & recvPacket)
     authSession->AddonInfo.resize(recvPacket.size() - recvPacket.rpos());
     recvPacket.read(authSession->AddonInfo.contents(), authSession->AddonInfo.size()); // .contents will throw if empty, thats what we want
 
+    // The server follows the realm the client names: the login waits until the world is bound to it
+    if (authSession->RealmID != realm.Id.Realm && !sToCloud9Sidecar->ClusterModeEnabled() && sWorld->getBoolConfig(CONFIG_REALM_SWITCH_ENABLE))
+    {
+        _heldAuthSession = authSession;
+        static_cast<World*>(sWorld.get())->RequestRealmBind(authSession->RealmID, [weak = weak_from_this()](bool bound)
+        {
+            if (std::shared_ptr<WorldSocket> socket = std::static_pointer_cast<WorldSocket>(weak.lock()))
+                socket->_realmSwitchResult = bound ? 1 : 2;
+        });
+        return;
+    }
+
+    StartAuthSession(authSession);
+}
+
+// the world has changed realm for the login that waited for it (or could not)
+void WorldSocket::ContinueHeldAuthSession()
+{
+    std::shared_ptr<ClientAuthSession> held = std::move(_heldAuthSession);
+    if (_realmSwitchResult.load() == 1)
+    {
+        StartAuthSession(held);
+        return;
+    }
+
+    SendAuthResponseError(REALM_LIST_REALM_NOT_FOUND);
+    LOG_ERROR("network", "WorldSocket::HandleAuthSession: The server could not change to realm {} that client {} asked for.", held->RealmID, GetRemoteIpAddress().to_string());
+    DelayedCloseSocket();
+}
+
+void WorldSocket::StartAuthSession(std::shared_ptr<ClientAuthSession> authSession)
+{
     // Get the account information from the auth database
     LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_INFO_BY_NAME);
     stmt->SetData(0, int32(realm.Id.Realm));

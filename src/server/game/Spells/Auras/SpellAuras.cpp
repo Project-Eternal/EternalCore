@@ -350,6 +350,10 @@ Aura* Aura::Create(SpellInfo const* spellproto, uint8 effMask, WorldObject* owne
     return aura;
 }
 
+// Set by a module (mod-p2p): told when an aura gets its duration (what 0: at its making, when it is set or refreshed, when it is loaded) and when it is destroyed (what 1),
+// so that the module can note the moment the aura ends once instead of working it out again at every look
+AC_GAME_API void (*AuraTiming)(Aura const* aura, int what) = nullptr;
+
 Aura::Aura(SpellInfo const* spellproto, WorldObject* owner, Unit* caster, Item* castItem, ObjectGuid casterGUID, ObjectGuid itemGUID /*= ObjectGuid::Empty*/) :
     m_spellInfo(spellproto), m_casterGuid(casterGUID ? casterGUID : caster->GetGUID()),
     m_castItemGuid(itemGUID ? itemGUID : castItem ? castItem->GetGUID() : ObjectGuid::Empty), m_castItemEntry(castItem ? castItem->GetEntry() : 0), m_applyTime(GameTime::GetGameTime().count()),
@@ -362,6 +366,8 @@ Aura::Aura(SpellInfo const* spellproto, WorldObject* owner, Unit* caster, Item* 
 
     m_maxDuration = CalcMaxDuration(caster);
     m_duration = m_maxDuration;
+    if (AuraTiming)
+        AuraTiming(this, 0);
     m_procCharges = CalcMaxCharges(caster);
     m_isUsingCharges = m_procCharges != 0;
     memset(m_effects, 0, sizeof(m_effects));
@@ -390,6 +396,9 @@ void Aura::_InitEffects(uint8 effMask, Unit* caster, int32* baseAmount)
 
 Aura::~Aura()
 {
+    if (AuraTiming)
+        AuraTiming(this, 1);
+
     // unload scripts
     while (!m_loadedScripts.empty())
     {
@@ -909,6 +918,8 @@ void Aura::SetDuration(int32 duration, bool withMods)
                 modOwner->ApplySpellMod(GetId(), SPELLMOD_DURATION, duration);
     }
     m_duration = duration;
+    if (AuraTiming)
+        AuraTiming(this, 0);
     SetNeedClientUpdateForTargets();
 }
 
@@ -1243,6 +1254,8 @@ void Aura::SetLoadedState(int32 maxduration, int32 duration, int32 charges, uint
 {
     m_maxDuration = maxduration;
     m_duration = duration;
+    if (AuraTiming)
+        AuraTiming(this, 0);
     m_procCharges = charges;
     m_isUsingCharges = m_procCharges != 0;
     m_stackAmount = stackamount;

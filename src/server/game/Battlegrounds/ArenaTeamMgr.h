@@ -40,6 +40,7 @@ public:
     ArenaTeam* GetArenaTeamByCaptain(ObjectGuid guid, const uint32 type) const;
 
     void LoadArenaTeams();
+    void Unload();   // forgets the teams (nothing is written to the database)
     void AddArenaTeam(ArenaTeam* arenaTeam);
     void RemoveArenaTeam(uint32 Id);
 

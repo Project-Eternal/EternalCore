@@ -177,6 +177,8 @@ public: /* WorldScript */
     void OnStartup();
     void OnShutdown();
     void OnBeforeWorldInitialized();
+    void OnBeforeRealmUnbind(uint32 realmId);
+    void OnAfterRealmBind(uint32 realmId);
     void OnAfterUnloadAllMaps();
 
 public: /* FormulaScript */
@@ -664,6 +666,7 @@ public: /* GameEventScript */
 
 public: /* MailScript */
     void OnBeforeMailDraftSendMailTo(MailDraft* mailDraft, MailReceiver const& receiver, MailSender const& sender, MailCheckMask& checked, uint32& deliver_delay, uint32& custom_expiration, bool& deleteMailItemsFromDB, bool& sendMail);
+    void OnMailExpiryDelay(MailDraft* mailDraft, MailSender const& sender, uint32& expireDelay);
 
 public: /* AchievementScript */
 

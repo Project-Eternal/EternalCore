@@ -42,6 +42,7 @@ public:
     Channel* GetChannel(std::string const& name, Player* p, bool pkt = true);
     [[nodiscard]] ChannelMap const& GetChannels() const { return channels; }
     static void LoadChannels();
+    static void UnloadChannels();   // forgets every channel and the rights of the custom ones
 
     static void LoadChannelRights();
     static ChannelRights const& GetChannelRightsFor(std::string const& name);

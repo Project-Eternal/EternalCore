@@ -17,6 +17,7 @@
 
 #include "Chat.h"
 #include "CommandScript.h"
+#include "Config.h"
 #include "Player.h"
 #include "RBAC.h"
 #include "WaypointMgr.h"
@@ -94,7 +95,7 @@ public:
                 PreparedQueryResult result = WorldDatabase.Query(stmt);
 
                 uint32 maxpathid = result->Fetch()->Get<int32>();
-                pathid = maxpathid + 1;
+                pathid = std::max<uint32>(maxpathid + 1, sConfigMgr->GetOption<uint32>("World.CustomIdStart", 0));
                 handler->PSendSysMessage("{}{}|r", "|cff00ff00", "New path started.");
             }
         }
@@ -314,7 +315,7 @@ public:
 
                 PreparedQueryResult result = WorldDatabase.Query(stmt);
 
-                id = result->Fetch()->Get<uint32>();
+                id = std::max<uint32>(result->Fetch()->Get<uint32>(), sConfigMgr->GetOption<uint32>("World.CustomIdStart", 0));
 
                 stmt = WorldDatabase.GetPreparedStatement(WORLD_INS_WAYPOINT_SCRIPT);
 

@@ -22,6 +22,7 @@
 #include "ObjectMgr.h"
 #include "QueryResult.h"
 #include "Transport.h"
+#include "World.h"
 
 ////////////////////////////////////////////////////////////
 // template class SpawnedPoolData
@@ -1020,7 +1021,7 @@ void PoolMgr::LoadFromDB()
                 {
                     // Quest pools are global and not map-bound: spawn them now
                     // (restores the previously saved state from the characters DB)
-                    if (mPoolQuestGroups.find(pool_entry) != mPoolQuestGroups.end())
+                    if (mPoolQuestGroups.find(pool_entry) != mPoolQuestGroups.end() && !sWorld->getBoolConfig(CONFIG_REALM_SWITCH_ENABLE))
                         SpawnPool<Quest>(mQuestSpawnedData, pool_entry, 0);
 
                     PoolTemplateData const& templateData = mPoolTemplate[pool_entry];
@@ -1039,6 +1040,20 @@ void PoolMgr::LoadFromDB()
 
 void PoolMgr::LoadQuestPools()
 {
+}
+
+void PoolMgr::SpawnQuestPools()
+{
+    // (the pools LoadFromDB spawns: those that have something to spawn, are well formed and are not a child of another pool)
+    for (auto const& [poolId, group] : mPoolQuestGroups)
+        if (!IsEmpty(poolId) && CheckPool(poolId) && !IsPartOfAPool<Pool>(poolId))
+            SpawnPool<Quest>(mQuestSpawnedData, poolId, 0);
+}
+
+void PoolMgr::DespawnQuestPools()
+{
+    for (auto& [poolId, group] : mPoolQuestGroups)
+        group.DespawnObject(mQuestSpawnedData);
 }
 
 void PoolMgr::SaveQuestsToDB(bool daily, bool weekly, bool other)

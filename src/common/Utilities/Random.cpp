@@ -77,8 +77,20 @@ Seconds randtime(Seconds min, Seconds max)
     return min + Seconds(urand(0, diff));
 }
 
+// Set by a module (mod-p2p): while on, every random number of this thread comes from a counter-based generator seeded by the module (splitmix64), so that servers that
+// evaluate the same act of a player draw the same numbers
+AC_COMMON_API thread_local bool g_seededRandomOn = false;
+AC_COMMON_API thread_local uint64 g_seededRandomState = 0;
+
 uint32 rand32()
 {
+    if (g_seededRandomOn)
+    {
+        uint64 z = (g_seededRandomState += 0x9E3779B97F4A7C15ull);
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+        return uint32((z ^ (z >> 31)) >> 16);
+    }
     return GetRng()->RandomUInt32();
 }
 

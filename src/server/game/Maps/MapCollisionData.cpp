@@ -19,6 +19,7 @@
 #include "DetourNavMeshQuery.h"
 #include "DisableMgr.h"
 #include "MapCollisionData.h"
+#include "MapDataProvider.h"
 #include "MapTree.h"
 #include "ModelInstance.h"
 #include "VMapFactory.h"
@@ -29,13 +30,14 @@
 #include <G3D/Vector3.h>
 
 MapCollisionData::MapCollisionData(Map const& map, Map const* parentMap) :
-    _map(map), _staticVMapData(map.GetId())
+    _map(map), _dynamicVMapData(map.GetId()), _staticVMapData(map.GetId())
 {
     if (parentMap)
     {
         // If we have a parent map, point our static tree and mmap nav mesh to the parent maps
         _staticVMapData._staticTree = parentMap->GetMapCollisionData().GetStaticTreeSharedPtr();
         _mmapData._navMesh = parentMap->GetMapCollisionData().GetMMapNavMeshSharedPtr();
+        _mmapData._fromProvider = parentMap->GetMapCollisionData()._mmapData._fromProvider;
     }
     else
     {
@@ -45,7 +47,11 @@ MapCollisionData::MapCollisionData(Map const& map, Map const* parentMap) :
         if (newTree->InitMap(mapFileName))
             _staticVMapData._staticTree = newTree;
 
-        _mmapData._navMesh = MMAP::MMapMgr::LoadNavMesh(map.GetId());
+        MapDataProvider* provider = MapDataProvider::Get();
+        _mmapData._navMesh = provider ? provider->GetNavMesh(map.GetId()) : nullptr;
+        _mmapData._fromProvider = _mmapData._navMesh != nullptr;
+        if (!_mmapData._navMesh)
+            _mmapData._navMesh = MMAP::MMapMgr::LoadNavMesh(map.GetId());
     }
 }
 
@@ -65,6 +71,13 @@ int MapCollisionData::LoadMMapTile(uint32 tileX, uint32 tileY)
     if (!DisableMgr::IsPathfindingEnabled(&_map) || !_mmapData._navMesh)
         return MMAP::MMAP_LOAD_RESULT_IGNORED;
 
+    if (_mmapData._fromProvider)
+    {
+        if (MapDataProvider* provider = MapDataProvider::Get())
+            provider->NavMeshGridLoaded(_map.GetId(), tileX, tileY);
+        return MMAP::MMAP_LOAD_RESULT_OK;
+    }
+
     return MMAP::MMapMgr::LoadTile(_mmapData._navMesh.get(), _map.GetId(), tileX, tileY);
 }
 
@@ -74,6 +87,9 @@ bool StaticVMapCollisionData::isInLineOfSight(float x1, float y1, float z1, floa
     if (!sWorld->getBoolConfig(CONFIG_VMAP_ENABLE_LOS) || DisableMgr::IsVMAPDisabledFor(_mapId, VMAP::VMAP_DISABLE_LOS))
         return true;
 #endif
+
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->IsInLineOfSight(_mapId, MapDataProvider::Models::Map, x1, y1, z1, x2, y2, z2, ignoreFlags);
 
     if (!_staticTree)
         return true;
@@ -92,6 +108,9 @@ bool StaticVMapCollisionData::GetObjectHitPos(float x1, float y1, float z1, floa
     if (sWorld->getBoolConfig(CONFIG_VMAP_ENABLE_LOS) && !DisableMgr::IsVMAPDisabledFor(_mapId, VMAP::VMAP_DISABLE_LOS))
 #endif
     {
+        if (MapDataProvider* provider = MapDataProvider::Get())
+            return provider->GetObjectHitPos(_mapId, MapDataProvider::Models::Map, x1, y1, z1, x2, y2, z2, rx, ry, rz, modifyDist);
+
         if (_staticTree)
         {
             G3D::Vector3 const pos1 = VMAP::VMapMgr2::convertPositionToInternalRep(x1, y1, z1);
@@ -119,6 +138,9 @@ float StaticVMapCollisionData::getHeight(float x, float y, float z, float maxSea
     if (sWorld->getBoolConfig(CONFIG_VMAP_ENABLE_HEIGHT) && !DisableMgr::IsVMAPDisabledFor(_mapId, VMAP::VMAP_DISABLE_HEIGHT))
 #endif
     {
+        if (MapDataProvider* provider = MapDataProvider::Get())
+            return provider->GetModelHeight(_mapId, MapDataProvider::Models::Map, x, y, z, maxSearchDist);
+
         if (_staticTree)
         {
             G3D::Vector3 const pos = VMAP::VMapMgr2::convertPositionToInternalRep(x, y, z);
@@ -135,6 +157,17 @@ float StaticVMapCollisionData::getHeight(float x, float y, float z, float maxSea
 
 bool StaticVMapCollisionData::GetAreaAndLiquidData(float x, float y, float z, Optional<uint8> reqLiquidType, VMAP::AreaAndLiquidData& data) const
 {
+    if (MapDataProvider* provider = MapDataProvider::Get())
+    {
+        if (!provider->GetAreaAndLiquidData(_mapId, MapDataProvider::Models::Map, x, y, z, reqLiquidType, data))
+            return false;
+        if (DisableMgr::IsVMAPDisabledFor(_mapId, VMAP::VMAP_DISABLE_LIQUIDSTATUS))
+            data.liquidInfo.reset();
+        if (DisableMgr::IsVMAPDisabledFor(_mapId, VMAP::VMAP_DISABLE_AREAFLAG))
+            data.areaInfo.reset();
+        return true;
+    }
+
     if (_staticTree)
     {
         VMAP::LocationInfo info;
@@ -162,6 +195,9 @@ bool StaticVMapCollisionData::GetAreaAndLiquidData(float x, float y, float z, Op
 
 bool DynamicVMapCollisionData::GetObjectHitPos(uint32 phasemask, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist) const
 {
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->GetObjectHitPos(_mapId, MapDataProvider::Models::GameObjects, x1, y1, z1, x2, y2, z2, rx, ry, rz, modifyDist);
+
     G3D::Vector3 startPos(x1, y1, z1);
     G3D::Vector3 dstPos(x2, y2, z2);
 
@@ -172,6 +208,30 @@ bool DynamicVMapCollisionData::GetObjectHitPos(uint32 phasemask, float x1, float
     ry = resultPos.y;
     rz = resultPos.z;
     return result;
+}
+
+bool DynamicVMapCollisionData::isInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, uint32 phasemask, VMAP::ModelIgnoreFlags ignoreFlags) const
+{
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->IsInLineOfSight(_mapId, MapDataProvider::Models::GameObjects, x1, y1, z1, x2, y2, z2, ignoreFlags);
+
+    return DynamicMapTree::isInLineOfSight(x1, y1, z1, x2, y2, z2, phasemask, ignoreFlags);
+}
+
+float DynamicVMapCollisionData::getHeight(float x, float y, float z, float maxSearchDist, uint32 phasemask) const
+{
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->GetModelHeight(_mapId, MapDataProvider::Models::GameObjects, x, y, z, maxSearchDist);
+
+    return DynamicMapTree::getHeight(x, y, z, maxSearchDist, phasemask);
+}
+
+bool DynamicVMapCollisionData::GetAreaAndLiquidData(float x, float y, float z, uint32 phasemask, Optional<uint8> reqLiquidType, VMAP::AreaAndLiquidData& data) const
+{
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->GetAreaAndLiquidData(_mapId, MapDataProvider::Models::GameObjects, x, y, z, reqLiquidType, data);
+
+    return DynamicMapTree::GetAreaAndLiquidData(x, y, z, phasemask, reqLiquidType, data);
 }
 
 dtNavMeshQuery const* MMapData::GetNavMeshQuery()

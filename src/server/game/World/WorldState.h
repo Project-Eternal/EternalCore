@@ -288,6 +288,9 @@ class WorldState
         static WorldState* instance();
         void Load();
         void LoadWorldStates();
+        // Forgets what the characters database kept (the world states, the progress of the Scourge Invasion and of the Sun's Reach), without saving anything and
+        // without stopping what runs on the maps: the maps are unloaded with it
+        void Unload();
         void setWorldState(uint32 index, uint64 value);
         [[nodiscard]] uint64 getWorldState(uint32 index) const;
         void Save(WorldStateSaveIds saveId);

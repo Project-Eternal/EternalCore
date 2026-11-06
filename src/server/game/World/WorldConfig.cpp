@@ -577,6 +577,9 @@ void WorldConfig::BuildConfigCache()
 
     // Warden
     SetConfigValue<bool>(CONFIG_WARDEN_ENABLED, "Warden.Enabled", true);
+
+    // The server can change realm while it runs (see World::BindRealm); read at the start only
+    SetConfigValue<bool>(CONFIG_REALM_SWITCH_ENABLE, "World.RealmSwitch.Enable", false);
     SetConfigValue<uint32>(CONFIG_WARDEN_NUM_MEM_CHECKS, "Warden.NumMemChecks", 3);
     SetConfigValue<uint32>(CONFIG_WARDEN_NUM_LUA_CHECKS, "Warden.NumLuaChecks", 1);
     SetConfigValue<uint32>(CONFIG_WARDEN_NUM_OTHER_CHECKS, "Warden.NumOtherChecks", 7);

@@ -36,6 +36,15 @@ BattlefieldMgr* BattlefieldMgr::instance()
     return &instance;
 }
 
+void BattlefieldMgr::Unload()
+{
+    for (Battlefield* bf : _battlefieldSet)
+        delete bf;
+
+    _battlefieldSet.clear();
+    _battlefieldMap.clear();
+}
+
 void BattlefieldMgr::InitBattlefield()
 {
     if (sWorld->getIntConfig(CONFIG_WINTERGRASP_ENABLE) == 2)

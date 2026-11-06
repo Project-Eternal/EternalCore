@@ -1061,11 +1061,48 @@ void GameEventMgr::LoadEventPoolData()
     }
 }
 
+void GameEventMgr::LoadRealmData()
+{
+    LoadEventSaveData();
+    LoadEventConditionSaveData();
+}
+
+void GameEventMgr::UnloadRealmData()
+{
+    // what runs is stopped as at its end, but without saving the state of the realm that is left
+    ActiveEvents active = _activeEvents;
+    for (uint16 eventId : active)
+        UnApplyEvent(eventId);
+
+    _activeEvents.clear();
+    _isSystemInit = false;
+
+    WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_GAME_EVENTS);
+    if (PreparedQueryResult result = WorldDatabase.Query(stmt))
+        do
+        {
+            Field* fields = result->Fetch();
+            uint8 eventId = fields[0].Get<uint8>();
+            if (eventId < _gameEvent.size())
+                _gameEvent[eventId].State = GameEventState(fields[8].Get<uint8>());
+        } while (result->NextRow());
+
+    for (GameEventData& data : _gameEvent)
+    {
+        data.NextStart = 0;
+        for (auto& [id, condition] : data.Conditions)
+            condition.Done = 0;
+    }
+}
+
 void GameEventMgr::LoadFromDB()
 {
+    bool const realmData = !sWorld->getBoolConfig(CONFIG_REALM_SWITCH_ENABLE);   // (else LoadRealmData reads it, when the realm is bound)
+
     // The order of these functions matter. Do not change
     LoadEvents();
-    LoadEventSaveData();
+    if (realmData)
+        LoadEventSaveData();
     LoadEventPrerequisiteData();
     LoadEventCreatureData();
     LoadEventGameObjectData();
@@ -1074,7 +1111,8 @@ void GameEventMgr::LoadFromDB()
     LoadEventGameObjectQuestData();
     LoadEventQuestConditionData();
     LoadEventConditionData();
-    LoadEventConditionSaveData();
+    if (realmData)
+        LoadEventConditionSaveData();
     LoadEventNPCFlags();
     LoadEventSeasonalQuestRelations();
     LoadEventVendors();

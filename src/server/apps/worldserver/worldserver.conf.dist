@@ -900,6 +900,35 @@ Metric.OverallStatusInterval = 1
 BirthdayTime = 1222964635
 
 #
+#    World.RealmSwitch.Enable
+#        Description: The server can change realm while it runs. The data of the characters database belongs to one realm: with this on, the start leaves
+#                     out what the core loads from it and ends by binding the realm RealmID; a world login that names another realm makes the server forget
+#                     the realm it is bound to (in the reverse order of the start), open the characters database of the other realm and read it (in the order
+#                     of the start). Needs World.RealmSwitch.CharacterDatabaseInfo for the databases to differ. Read at the start only.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+World.RealmSwitch.Enable = 0
+
+#
+#    World.RealmSwitch.CharacterDatabaseInfo
+#        Description: The connection string of the characters database of a realm, as CharacterDatabaseInfo, with {} for the realm number.
+#                     Empty: the database stays as it is whichever the realm.
+#        Example:     "127.0.0.1;3306;acore;acore;acore_characters_{}"
+#        Default:     ""
+
+World.RealmSwitch.CharacterDatabaseInfo = ""
+
+#
+#    World.RealmSwitch.Config
+#        Description: The settings of a realm: a file of the modules' configuration folder (etc/modules/) read after the others, so that its keys win,
+#                     with {} for the realm number. It may be missing.
+#        Example:     "realm_{}.conf"
+#        Default:     ""
+
+World.RealmSwitch.Config = ""
+
+#
 #    PlayerLimit
 #        Description: Maximum number of players in the world. Excluding Mods, GMs and Admins.
 #        Important:   If you want to block players and only allow Mods, GMs or Admins to join the
@@ -1017,6 +1046,24 @@ SocketTimeOutTime = 900000
 #        Default:     60000 - (1 minute)
 
 SocketTimeOutTimeActive = 60000
+
+#
+#    OfflineSessionTime
+#        Description: Time (in seconds) a player stays in the world after its connection was lost
+#                     (the character is logged out when it has passed). 0 logs the player out at once.
+#        Default:     60 - (1 minute)
+
+OfflineSessionTime = 60
+
+#
+#    World.CustomIdStart
+#        Description: The identifiers of the rows a game master adds to the world database (a creature or an object
+#                     spawned, a teleport place, a waypoint path or script) start at this number or at the next free
+#                     number if that is higher. The rows then stay clear of the rows of a newer world database,
+#                     and are recognized as custom rows.
+#        Default:     0 - (the next free number)
+
+World.CustomIdStart = 0
 
 #
 #    MaxOverspeedPings

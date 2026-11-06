@@ -686,6 +686,9 @@ void Channel::SendWhoOwner(ObjectGuid guid)
     SendToOne(&data, guid);
 }
 
+// set by a module that knows the members of a channel on other servers (mod-p2p): they are added to the list a player asks for
+AC_GAME_API void (*ChannelRemoteMembers)(Channel const*, std::vector<std::pair<ObjectGuid, uint8>>&) = nullptr;
+
 void Channel::List(Player const* player)
 {
     ObjectGuid guid = player->GetGUID();
@@ -721,6 +724,20 @@ void Channel::List(Player const* player)
                     data << uint8(i->second.flags); // flags seems to be changed...
                     ++count;
                 }
+
+    if (ChannelRemoteMembers && !(_channelRights.flags & CHANNEL_RIGHT_CANT_SPEAK))
+    {
+        std::vector<std::pair<ObjectGuid, uint8>> remote;
+        ChannelRemoteMembers(this, remote);
+        for (auto const& [remoteGuid, remoteFlags] : remote)
+        {
+            if (playersStore.find(remoteGuid) != playersStore.end())
+                continue;
+            data << remoteGuid;
+            data << uint8(remoteFlags);
+            ++count;
+        }
+    }
 
     data.put<uint32>(pos, count);
 

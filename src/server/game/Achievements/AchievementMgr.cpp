@@ -2950,6 +2950,12 @@ void AchievementGlobalMgr::LoadAchievementCriteriaData()
     LOG_INFO("server.loading", " ");
 }
 
+void AchievementGlobalMgr::UnloadCompletedAchievements()
+{
+    for (auto& [id, time] : _allCompletedAchievements)
+        time = SystemTimePoint::min();
+}
+
 void AchievementGlobalMgr::LoadCompletedAchievements()
 {
     uint32 oldMSTime = getMSTime();

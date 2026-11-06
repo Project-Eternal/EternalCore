@@ -37,6 +37,14 @@ PetitionMgr* PetitionMgr::instance()
     return &instance;
 }
 
+void PetitionMgr::Unload()
+{
+    PetitionStore.clear();
+    PetitionIdToItemGuid.clear();
+    SignatureStore.clear();
+    _nextPetitionId = 1;
+}
+
 void PetitionMgr::LoadPetitions()
 {
     uint32 oldMSTime = getMSTime();

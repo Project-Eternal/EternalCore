@@ -61,9 +61,22 @@ namespace GameTime
         return duration_cast<Seconds>(GameTimeSteadyPoint - StartSteadyPoint);
     }
 
+    int64 (*ClockCorrection)() = nullptr;
+
+    void SetClockCorrection(int64 (*correction)())
+    {
+        ClockCorrection = correction;
+    }
+
+    int64 GetNetworkTimeMS()
+    {
+        int64 now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        return ClockCorrection ? now + ClockCorrection() : now;
+    }
+
     void UpdateGameTimers()
     {
-        GameTime = GetEpochTime();
+        GameTime = ClockCorrection ? duration_cast<Seconds>(milliseconds(GetNetworkTimeMS())) : GetEpochTime();
         GameMSTime = GetTimeMS();
         GameTimeSystemPoint = system_clock::now();
         GameTimeSteadyPoint = steady_clock::now();

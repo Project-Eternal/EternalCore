@@ -16,6 +16,7 @@
  */
 
 #include "DBCFileLoader.h"
+#include "DataFileSource.h"
 #include "Errors.h"
 #include <string.h>
 
@@ -23,22 +24,32 @@ DBCFileLoader::DBCFileLoader() : recordSize(0), recordCount(0), fieldCount(0), s
 
 bool DBCFileLoader::Load(char const* filename, char const* fmt)
 {
-    uint32 header;
     if (data)
     {
         delete [] data;
         data = nullptr;
     }
 
-    FILE* f = fopen(filename, "rb");
-    if (!f)
+    std::vector<uint8> contents;
+    if (!DataFileSource::Read(filename, contents))
     {
         return false;
     }
 
-    if (fread(&header, 4, 1, f) != 1)                        // Number of records
+    std::size_t position = 0;
+    auto read = [&](void* target, std::size_t size)
     {
-        fclose(f);
+        if (contents.size() - position < size)
+            return false;
+
+        memcpy(target, contents.data() + position, size);
+        position += size;
+        return true;
+    };
+
+    uint32 header;
+    if (!read(&header, 4))                                   // Number of records
+    {
         return false;
     }
 
@@ -46,37 +57,32 @@ bool DBCFileLoader::Load(char const* filename, char const* fmt)
 
     if (header != 0x43424457)                                //'WDBC'
     {
-        fclose(f);
         return false;
     }
 
-    if (fread(&recordCount, 4, 1, f) != 1)                   // Number of records
+    if (!read(&recordCount, 4))                              // Number of records
     {
-        fclose(f);
         return false;
     }
 
     EndianConvert(recordCount);
 
-    if (fread(&fieldCount, 4, 1, f) != 1)                    // Number of fields
+    if (!read(&fieldCount, 4))                               // Number of fields
     {
-        fclose(f);
         return false;
     }
 
     EndianConvert(fieldCount);
 
-    if (fread(&recordSize, 4, 1, f) != 1)                    // Size of a record
+    if (!read(&recordSize, 4))                               // Size of a record
     {
-        fclose(f);
         return false;
     }
 
     EndianConvert(recordSize);
 
-    if (fread(&stringSize, 4, 1, f) != 1)                    // String size
+    if (!read(&stringSize, 4))                               // String size
     {
-        fclose(f);
         return false;
     }
 
@@ -101,13 +107,10 @@ bool DBCFileLoader::Load(char const* filename, char const* fmt)
     data = new unsigned char[recordSize * recordCount + stringSize];
     stringTable = data + recordSize * recordCount;
 
-    if (fread(data, recordSize * recordCount + stringSize, 1, f) != 1)
+    if (!read(data, recordSize * recordCount + stringSize))
     {
-        fclose(f);
         return false;
     }
-
-    fclose(f);
 
     return true;
 }

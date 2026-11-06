@@ -254,6 +254,16 @@ CreatureTextOptions const* CreatureTextMgr::GetTextOptions(uint32 entry, uint8 g
     return &groupItr->second;
 }
 
+// Set by a module (mod-p2p): called when a creature is about to say a line of its texts; false: the creature does not say it here
+AC_GAME_API bool (*CreatureTextOut)(Creature* source, uint8 group, uint32 id, ChatMsg type, Language lang, CreatureTextRange range, TeamId team, bool gmOnly, WorldObject const* target) = nullptr;
+
+// The line the creature_text rows give (group, id) said as if the creature had chosen it: what a module shows of a creature that another server decides
+AC_GAME_API void CreatureTextSayExact(Creature* source, uint8 group, uint32 id, ChatMsg type, Language lang, CreatureTextRange range, TeamId team, bool gmOnly, WorldObject const* target)
+{
+    CreatureTextBuilder builder(source, source->getGender(), type, group, id, lang, target);
+    sCreatureTextMgr->SendChatPacket(source, builder, type, target, range, team, gmOnly);
+}
+
 uint32 CreatureTextMgr::SendChat(Creature* source, uint8 textGroup, WorldObject const* target /*= nullptr*/, ChatMsg msgType /*= CHAT_MSG_ADDON*/, Language language /*= LANG_ADDON*/, CreatureTextRange range /*= TEXT_RANGE_NORMAL*/, uint32 sound /*= 0*/, TeamId teamId /*= TEAM_NEUTRAL*/, bool gmOnly /*= false*/, Player* srcPlr /*= nullptr*/)
 {
     if (!source)
@@ -326,7 +336,15 @@ uint32 CreatureTextMgr::SendChat(Creature* source, uint8 textGroup, WorldObject 
     if (iter->emote)
         SendEmote(finalSource, iter->emote);
 
-    if (srcPlr)
+    // a module (mod-p2p) sees what a creature says: the server that decides the creature tells the others, a copy of the creature that another server decides says nothing
+    bool say = true;
+    if (!srcPlr && CreatureTextOut)
+        say = CreatureTextOut(source, iter->group, iter->id, finalType, finalLang, range, teamId, gmOnly, target);
+
+    if (!say)
+    {
+    }
+    else if (srcPlr)
     {
         PlayerTextBuilder builder(source, finalSource, finalSource->getGender(), finalType, iter->group, iter->id, finalLang, target);
         SendChatPacket(finalSource, builder, finalType, target, range, teamId, gmOnly);

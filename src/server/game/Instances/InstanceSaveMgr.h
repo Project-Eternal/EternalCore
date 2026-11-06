@@ -155,6 +155,9 @@ public:
     typedef std::multimap<time_t /*resetTime*/, InstResetEvent> ResetTimeQueue;
 
     void LoadInstances();
+    // Forgets the saves, the binds of the players and the reset times (nothing is written to the database). Nobody is in an instance, no group is bound (the
+    // groups are unloaded first) and the maps are not looked at: the instance maps go with MapMgr::UnloadAll.
+    void Unload();
     void LoadResetTimes();
     void LoadInstanceSaves();
     void LoadCharacterBinds();

@@ -192,6 +192,7 @@ public:
     static TicketMgr* instance();
 
     void LoadTickets();
+    void Unload();   // forgets the tickets
     void LoadSurveys();
 
     GmTicket* GetTicket(uint32 ticketId)

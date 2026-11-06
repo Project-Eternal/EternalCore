@@ -1176,6 +1176,8 @@ public:
     [[nodiscard]] bool IsAcceptGroupInvites() const { return !(m_ExtraFlags & PLAYER_EXTRA_DECLINE_GROUP_INVITES); }
     void SetAcceptGroupInvites(bool on) { if (on) m_ExtraFlags &= ~PLAYER_EXTRA_DECLINE_GROUP_INVITES; else m_ExtraFlags |= PLAYER_EXTRA_DECLINE_GROUP_INVITES; }
     [[nodiscard]] bool IsGameMaster() const { return m_ExtraFlags & PLAYER_EXTRA_GM_ON; }
+    /// The mirror of a character that another server decides (mod-p2p): a player on a session without a connection. It is never saved.
+    [[nodiscard]] bool IsMirror() const;
     [[nodiscard]] bool CanBeGameMaster() const;
     void SetGameMaster(bool on);
     [[nodiscard]] bool isGMChat() const { return m_ExtraFlags & PLAYER_EXTRA_GM_CHAT; }
@@ -2095,6 +2097,8 @@ public:
 
     bool CanJoinConstantChannelInZone(ChatChannelsEntry const* channel, AreaTableEntry const* zone);
 
+    /// The channels the player is in (a module that carries the chat to other servers, mod-p2p, follows them)
+    [[nodiscard]] std::list<Channel*> const& GetJoinedChannels() const { return m_channels; }
     void JoinedChannel(Channel* c);
     void LeftChannel(Channel* c);
     void CleanupChannels();

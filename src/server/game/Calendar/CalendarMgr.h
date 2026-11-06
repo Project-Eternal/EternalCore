@@ -292,6 +292,7 @@ public:
     static CalendarMgr* instance();
 
     void LoadFromDB();
+    void Unload();   // forgets the events and invites and the ids to reuse
 
     CalendarEvent* GetEvent(uint64 eventId, CalendarEventStore::iterator* it = nullptr);
     CalendarEventStore const& GetEvents() const { return _events; }

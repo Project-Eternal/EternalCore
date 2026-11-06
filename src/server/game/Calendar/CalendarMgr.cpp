@@ -58,6 +58,23 @@ CalendarMgr* CalendarMgr::instance()
     return &instance;
 }
 
+void CalendarMgr::Unload()
+{
+    for (CalendarEvent* calendarEvent : _events)
+        delete calendarEvent;
+
+    for (auto const& [eventId, invites] : _invites)
+        for (CalendarInvite* invite : invites)
+            delete invite;
+
+    _events.clear();
+    _invites.clear();
+    _freeEventIds.clear();
+    _freeInviteIds.clear();
+    _maxEventId = 0;
+    _maxInviteId = 0;
+}
+
 void CalendarMgr::LoadFromDB()
 {
     uint32 count = 0;

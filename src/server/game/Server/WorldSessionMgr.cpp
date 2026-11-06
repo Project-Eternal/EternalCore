@@ -17,6 +17,7 @@
 
 #include "Chat.h"
 #include "ChatPackets.h"
+#include "Config.h"
 #include "RBAC.h"
 #include "GameTime.h"
 #include "Metric.h"
@@ -186,12 +187,14 @@ void WorldSessionMgr::UpdateSessions(uint32 const diff)
     if (_offlineSessions.empty())
         return;
     uint32 currTime = GameTime::GetGameTime().count();
+    // seconds a player stays in the world after its connection was lost (0: logged out at once); read once, at the first offline session
+    static uint32 const offlineSeconds = sConfigMgr->GetOption<uint32>("OfflineSessionTime", 60);
     for (SessionMap::iterator itr = _offlineSessions.begin(), next; itr != _offlineSessions.end(); itr = next)
     {
         next = itr;
         ++next;
         WorldSession* pSession = itr->second;
-        if (!pSession->GetPlayer() || pSession->GetOfflineTime() + 60 < currTime || pSession->IsKicked())
+        if (!pSession->GetPlayer() || offlineSeconds == 0 || pSession->GetOfflineTime() + offlineSeconds < currTime || pSession->IsKicked())
         {
             _offlineSessions.erase(itr);
             delete pSession;

@@ -114,12 +114,18 @@ class PlayerSocial
         bool HasIgnore(ObjectGuid const& ignore_guid) const;
         ObjectGuid const& GetPlayerGUID() const { return m_playerGUID; }
         void SetPlayerGUID(ObjectGuid const& guid) { m_playerGUID = guid; }
+        /// With Social.AccountWide = 1 the friends and the ignore list belong to the account: the rows stay those of the character that added the entry,
+        /// loading reads the rows of all characters of the account, and removing an entry removes it from all of them
+        static bool AccountWide();
+        void WriteAccountEntry(ObjectGuid const& friendGuid, uint8 flags);
+        void SetAccountId(uint32 accountId) { m_accountId = accountId; }
         uint32 GetNumberOfSocialsWithFlag(SocialFlag flag) const;
     private:
         bool _checkContact(ObjectGuid const& guid, SocialFlag flags) const;
         typedef std::map<ObjectGuid, FriendInfo> PlayerSocialMap;
         PlayerSocialMap m_playerSocialMap;
         ObjectGuid m_playerGUID;
+        uint32 m_accountId{0};
 };
 
 class SocialMgr

@@ -125,6 +125,17 @@ void ArenaTeamMgr::RemoveArenaTeam(uint32 arenaTeamId)
     ArenaTeamStore.erase(arenaTeamId);
 }
 
+void ArenaTeamMgr::Unload()
+{
+    for (auto const& [id, team] : ArenaTeamStore)
+        delete team;
+
+    ArenaTeamStore.clear();
+    NextArenaTeamId = 1;
+    LastArenaLogId = 0;
+    NextTempArenaTeamId = 0xFFF00000;
+}
+
 void ArenaTeamMgr::DeleteAllArenaTeams()
 {
     for (auto const& [id, team] : ArenaTeamStore)

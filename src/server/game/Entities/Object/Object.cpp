@@ -63,6 +63,8 @@
 //  see: https://github.com/azerothcore/azerothcore-wotlk/issues/9766
 #include "GridNotifiersImpl.h"
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
 constexpr float VisibilityDistances[AsUnderlyingType(VisibilityDistanceType::Max)] =
 {
     DEFAULT_VISIBILITY_DISTANCE,
@@ -645,8 +647,19 @@ void Object::SetInt32Value(uint16 index, int32 value)
     }
 }
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
+// the fields that a script changes to show or hide a creature's abilities (unit flags, npc flags, dynamic flags): an effect of the reaction scope of a module (kind 9)
+static inline bool UnitFlagIndex(uint16 index)
+{
+    return index == UNIT_FIELD_FLAGS || index == UNIT_FIELD_FLAGS_2 || index == UNIT_NPC_FLAGS || index == UNIT_DYNAMIC_FLAGS;
+}
+
 void Object::SetUInt32Value(uint16 index, uint32 value)
 {
+    if (ReactionEffect && UnitFlagIndex(index) && (IsCreature() || IsPlayer()) && !ReactionEffect(static_cast<WorldObject*>(this), 9))
+        return;
+
     ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (m_uint32Values[index] != value)
@@ -835,6 +848,8 @@ void Object::ApplyModPositiveFloatValue(uint16 index, float  val, bool apply)
 
 void Object::SetFlag(uint16 index, uint32 newFlag)
 {
+    if (ReactionEffect && UnitFlagIndex(index) && (IsCreature() || IsPlayer()) && !ReactionEffect(static_cast<WorldObject*>(this), 9))
+        return;
     ASSERT(index < m_valuesCount || PrintIndexError(index, true));
     uint32 oldval = m_uint32Values[index];
     uint32 newval = oldval | newFlag;
@@ -850,6 +865,8 @@ void Object::SetFlag(uint16 index, uint32 newFlag)
 
 void Object::RemoveFlag(uint16 index, uint32 oldFlag)
 {
+    if (ReactionEffect && UnitFlagIndex(index) && (IsCreature() || IsPlayer()) && !ReactionEffect(static_cast<WorldObject*>(this), 9))
+        return;
     ASSERT(index < m_valuesCount || PrintIndexError(index, true));
     ASSERT(m_uint32Values);
 
@@ -2174,14 +2191,23 @@ void WorldObject::SendMessageToSet(WorldPacket const* data, bool self) const
         SendMessageToSetInRange(data, 0.0f, self);
 }
 
+// Set by a module (mod-p2p): every packet a creature (or another object that is not a player) sends to those around it; false: not delivered here
+AC_GAME_API bool (*ObjectBroadcast)(WorldObject const* object, WorldPacket const* data) = nullptr;
+
 void WorldObject::SendMessageToSetInRange(WorldPacket const* data, float dist, bool /*self*/) const
 {
+    if (ObjectBroadcast && !ObjectBroadcast(this, data))
+        return;
+
     Acore::MessageDistDeliverer notifier(this, data, dist);
     notifier.Visit(GetObjectVisibilityContainer().GetVisiblePlayersMap());
 }
 
 void WorldObject::SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr) const
 {
+    if (ObjectBroadcast && !ObjectBroadcast(this, data))
+        return;
+
     Acore::MessageDistDeliverer notifier(this, data, 0.0f, Acore::TeamFilter::All, skipped_rcvr);
     notifier.Visit(GetObjectVisibilityContainer().GetVisiblePlayersMap());
 }
@@ -2243,8 +2269,13 @@ void WorldObject::AddObjectToRemoveList()
     map->AddObjectToRemoveList(this);
 }
 
+AC_GAME_API bool (*SummonAsPuppet)() = nullptr;
+
 TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropertiesEntry const* properties /*= nullptr*/, uint32 duration /*= 0*/, WorldObject* summoner /*= nullptr*/, uint32 spellId /*= 0*/, uint32 vehId /*= 0*/, bool visibleBySummonerOnly /*= false*/)
 {
+    if (ReactionEffect && !ReactionEffect(summoner, 7))
+        return nullptr;
+
     uint32 mask = UNIT_MASK_SUMMON;
     if (properties)
     {
@@ -2326,6 +2357,10 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
         delete summon;
         return nullptr;
     }
+
+    // set by a module (mod-p2p): the summon being made is a copy of another server's creature, marked as such before it enters the world
+    if (SummonAsPuppet && SummonAsPuppet())
+        summon->SetPuppet(true);
 
     summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, spellId);
 
@@ -2466,6 +2501,9 @@ TempSummon* WorldObject::SummonCreature(uint32 entry, Position const& pos, TempS
 
 GameObject* WorldObject::SummonGameObject(uint32 entry, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint32 respawnTime, bool checkTransport, GOSummonType summonType)
 {
+    if (ReactionEffect && !ReactionEffect(this, 8))
+        return nullptr;
+
     if (!IsInWorld())
         return nullptr;
 
@@ -3021,8 +3059,14 @@ void WorldObject::PlayDirectSound(uint32 sound_id, Player* target /*= nullptr*/)
         SendMessageToSet(WorldPackets::Misc::Playsound(sound_id).Write(), true);
 }
 
+// Set by a module (mod-p2p): a sound or music that an object plays to the players within a radius (they are sent it directly, not through the set of the object); false: not delivered here
+AC_GAME_API bool (*ObjectRadiusBroadcast)(WorldObject const* object, WorldPacket const* data, float radius) = nullptr;
+
 void WorldObject::PlayRadiusSound(uint32 sound_id, float radius)
 {
+    if (ObjectRadiusBroadcast && !ObjectRadiusBroadcast(this, WorldPackets::Misc::Playsound(sound_id).Write(), radius))
+        return;
+
     std::vector<Player*> targets;
     Acore::AnyPlayerInObjectRangeCheck check(this, radius, false);
     Acore::PlayerListSearcher<Acore::AnyPlayerInObjectRangeCheck> searcher(this, targets, check);
@@ -3042,6 +3086,9 @@ void WorldObject::PlayDirectMusic(uint32 music_id, Player* target /*= nullptr*/)
 
 void WorldObject::PlayRadiusMusic(uint32 music_id, float radius)
 {
+    if (ObjectRadiusBroadcast && !ObjectRadiusBroadcast(this, WorldPackets::Misc::PlayMusic(music_id).Write(), radius))
+        return;
+
     std::vector<Player*> targets;
     Acore::AnyPlayerInObjectRangeCheck check(this, radius, false);
     Acore::PlayerListSearcher<Acore::AnyPlayerInObjectRangeCheck> searcher(this, targets, check);

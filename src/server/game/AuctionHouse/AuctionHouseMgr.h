@@ -152,6 +152,9 @@ public:
 
     bool RemoveAuction(AuctionEntry* auction);
 
+    // forgets every auction (nothing is written to the database); the search workers are told as for any removed auction
+    void Clear();
+
     void Update();
 
 private:
@@ -203,6 +206,7 @@ public:
     //load first auction items, because of check if item exists, when loading
     void LoadAuctionItems();
     void LoadAuctions();
+    void Unload();   // forgets the auctions and their items
 
     void AddAItem(Item* it);
     bool RemoveAItem(ObjectGuid itemGuid, bool deleteFromDB = false, CharacterDatabaseTransaction* trans = nullptr);

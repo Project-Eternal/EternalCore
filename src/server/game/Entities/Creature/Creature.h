@@ -223,6 +223,12 @@ public:
     bool LoadFromDB(ObjectGuid::LowType guid, Map* map, bool allowDuplicate = false) { return LoadCreatureFromDB(guid, map, false, allowDuplicate); }
     bool LoadCreatureFromDB(ObjectGuid::LowType guid, Map* map, bool addToMap = true, bool allowDuplicate = false);
     [[nodiscard]] bool IsRespawnCompatibilityMode() const { return _respawnCompatibilityMode; }
+
+    /// A puppet is a creature whose decisions are made elsewhere (a module that shares the world with other servers, mod-p2p): its AI,
+    /// its movement generators, its regeneration and its respawn are not run here; it moves, fights and respawns as it is told. Setting it
+    /// stops what it was doing; clearing it hands it back to the creature's own AI and default movement, from where it stands.
+    [[nodiscard]] bool IsPuppet() const { return _puppet; }
+    void SetPuppet(bool puppet);
     void SaveToDB();
 
     virtual void SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask);   // overriden in Pet
@@ -472,6 +478,7 @@ protected:
     ObjectGuid::LowType m_lootRecipientGroup;
 
     bool _respawnCompatibilityMode{true};
+    bool _puppet{false};
 
     /// Timers
     time_t m_corpseRemoveTime;                          // (secs) timer for death or corpse disappearance

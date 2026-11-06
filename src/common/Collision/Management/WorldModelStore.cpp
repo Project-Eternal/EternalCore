@@ -18,6 +18,25 @@
 #include "Log.h"
 #include "WorldModelStore.h"
 
+uint32 WorldModelStore::ReleaseUnused(std::vector<std::string>* names)
+{
+    std::lock_guard<std::mutex> lock(_lock);
+    uint32 released = 0;
+    for (ModelFileMap::iterator model = _loadedModels.begin(); model != _loadedModels.end(); )
+    {
+        if (model->second.use_count() == 1)
+        {
+            if (names)
+                names->push_back(model->first);
+            model = _loadedModels.erase(model);
+            ++released;
+        }
+        else
+            ++model;
+    }
+    return released;
+}
+
 std::shared_ptr<VMAP::WorldModel> WorldModelStore::AcquireModelInstance(std::string const& basepath, std::string const& filename, uint32 flags/* Only used when creating the model */)
 {
     //! Critical section, thread safe access

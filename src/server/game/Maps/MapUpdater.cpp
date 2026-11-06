@@ -96,6 +96,10 @@ MapUpdater::MapUpdater() : pending_requests(0), _cancelationToken(false)
 
 void MapUpdater::activate(std::size_t num_threads)
 {
+    // (also after deactivate, when the server changes realm: the queue and the token were cancelled, and the threads are gone)
+    _workerThreads.clear();
+    _cancelationToken = false;
+    _queue.Reset();
     _workerThreads.reserve(num_threads);
     for (std::size_t i = 0; i < num_threads; ++i)
     {
@@ -119,6 +123,8 @@ void MapUpdater::deactivate()
             thread.join();
         }
     }
+
+    _workerThreads.clear();   // (activated() is false again, and activate can start new threads)
 }
 
 void MapUpdater::wait()

@@ -29,9 +29,12 @@
 #include "SharedDefines.h"
 #include "Timer.h"
 #include <atomic>
+#include <functional>
 #include <list>
 #include <map>
+#include <mutex>
 #include <unordered_map>
+#include <vector>
 
 class Object;
 class WorldPacket;
@@ -185,6 +188,21 @@ public:
     void SetInitialWorldSettings() override;
     void LoadConfigSettings(bool reload = false) override;
 
+    /**
+     * The realm (World.RealmSwitch.Enable). The data of the characters database (characters and what hangs on them: guilds, groups, auctions, instances, world
+     * states, the saved state of the events, the respawn times and corpses of the maps...) belongs to one realm. With the option on, the start leaves it out
+     * and ends by binding the realm of the configuration, and a running server can change realm: it unbinds the realm (every part of the core that holds data
+     * of the database forgets it, in the reverse order of the start; the maps go too), opens the characters database of the other realm and binds it (every
+     * part reads its data, in the order of the start). With the option off nothing of this is ever called and the start runs in its original order.
+     * Modules take part through WorldScript::OnBeforeRealmUnbind and OnAfterRealmBind.
+     */
+    [[nodiscard]] bool IsRealmBound() const { return _realmBound; }
+    /// Asks for the server to be bound to the realm, from any thread: the world thread does it between two updates, once no session is left; 'done' is called
+    /// there with the result (false: not possible, the old realm is still bound or the server stops)
+    void RequestRealmBind(uint32 realmId, std::function<void(bool)> done);
+    void BindRealm(uint32 realmId);
+    void UnbindRealm();
+
     /// Are we in the middle of a shutdown?
     [[nodiscard]] bool IsShuttingDown() const override { return _shutdownTimer > 0; }
     [[nodiscard]] uint32 GetShutDownTimeLeft() const override { return _shutdownTimer; }
@@ -324,6 +342,24 @@ private:
 
     void ProcessQueryCallbacks();
     QueryCallbackProcessor _queryProcessor;
+
+    // the realm (see BindRealm)
+    struct RealmRequest
+    {
+        uint32 Realm;
+        std::function<void(bool)> Done;
+        uint32 Waited;   // milliseconds
+    };
+    void UpdateRealmRequests(uint32 diff);
+    bool OpenCharacterDatabaseFor(uint32 realmId);
+    void LoadRealmInfo();
+    void CleanMailOfTheRealm();
+    void InitResetTimes();
+    bool _realmBound{false};
+    bool _realmBoundOnce{false};
+    std::string _characterDatabaseInfo;   // what the characters database is open on
+    std::mutex _realmRequestMutex;
+    std::vector<RealmRequest> _realmRequests;
 
     /**
      * @brief Executed when a World Session is being finalized. Be it from a normal login or via queue popping.

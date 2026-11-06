@@ -403,8 +403,13 @@ bool InstanceScript::_SkipCheckRequiredBosses(Player const* player /*= nullptr*/
     return player && player->GetSession()->HasPermission(rbac::RBAC_PERM_SKIP_CHECK_INSTANCE_REQUIRED_BOSSES);
 }
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
 bool InstanceScript::SetBossState(uint32 id, EncounterState state)
 {
+    if (ReactionEffect && !ReactionEffect(nullptr, 10))
+        return false;
+
     if (id < bosses.size())
     {
         BossInfo* bossInfo = &bosses[id];

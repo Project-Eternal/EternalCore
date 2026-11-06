@@ -415,6 +415,13 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
 
 void WorldSession::SynchronizeMovement(MovementInfo& movementInfo)
 {
+    if (_headless)
+    {
+        // (no client to synchronize the time with: a mirror of another server's player moves by the packets of that player, mod-p2p)
+        movementInfo.time = getMSTime();
+        return;
+    }
+
     int64 movementTime = (int64)movementInfo.time + _timeSyncClockDelta;
     if (_timeSyncClockDelta == 0 || movementTime < 0 || movementTime > 0xFFFFFFFF)
     {

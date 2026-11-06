@@ -103,6 +103,8 @@
 //  see: https://github.com/azerothcore/azerothcore-wotlk/issues/9766
 #include "GridNotifiersImpl.h"
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
 enum CharacterFlags
 {
     CHARACTER_FLAG_NONE                 = 0x00000000,
@@ -1400,6 +1402,9 @@ void Player::SendTeleportAckPacket()
 
 bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options /*= 0*/, Unit* target /*= nullptr*/, bool newInstance /*= false*/)
 {
+    if (ReactionEffect && !ReactionEffect(this, 6))
+        return false;
+
     if (!MapMgr::IsValidMapCoord(mapid, x, y, z, orientation))
     {
         LOG_ERROR("entities.player", "TeleportTo: invalid map ({}) or invalid coordinates (X: {}, Y: {}, Z: {}, O: {}) given when teleporting player ({}, name: {}, map: {}, X: {}, Y: {}, Z: {}, O: {}).",
@@ -1798,8 +1803,12 @@ void Player::RemoveFromWorld()
     }
 }
 
+// A mirror shows a character of another server (Player::IsMirror): its health and power are what its own server reports, not regenerated here
 void Player::RegenerateAll()
 {
+    if (IsMirror())
+        return;
+
     //if (m_regenTimer <= 500)
     //    return;
 
@@ -1883,6 +1892,9 @@ void Player::RegenerateAll()
 
 void Player::Regenerate(Powers power)
 {
+    if (IsMirror())
+        return;
+
     uint32 maxValue = GetMaxPower(power);
     if (!maxValue)
         return;
@@ -2025,6 +2037,9 @@ void Player::Regenerate(Powers power)
 
 void Player::RegenerateHealth()
 {
+    if (IsMirror())
+        return;
+
     uint32 curValue = GetHealth();
     uint32 maxValue = GetMaxHealth();
 
@@ -5851,8 +5866,14 @@ void Player::SendMessageToSet(WorldPacket const* data, bool self) const
     SendMessageToSetInRange(data, GetVisibilityRange(), self);
 }
 
+// Set by a module (mod-p2p): every packet this player's game sends about the player to those around it, to be forwarded to other servers
+AC_GAME_API void (*PlayerBroadcast)(Player const* player, WorldPacket const* data, bool self) = nullptr;
+
 void Player::SendMessageToSetInRange(WorldPacket const* data, float dist, bool self) const
 {
+    if (PlayerBroadcast)
+        PlayerBroadcast(this, data, self);
+
     if (self)
         SendDirectMessage(data);
 
@@ -5862,6 +5883,9 @@ void Player::SendMessageToSetInRange(WorldPacket const* data, float dist, bool s
 
 void Player::SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr) const
 {
+    if (PlayerBroadcast)
+        PlayerBroadcast(this, data, skipped_rcvr != this);
+
     if (skipped_rcvr != this)
         SendDirectMessage(data);
 

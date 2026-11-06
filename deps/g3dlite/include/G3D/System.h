@@ -20,7 +20,7 @@
 #include "G3D/BinaryFormat.h"
 #include "G3D/FileNotFound.h"
 #include <string>
-#if defined(__aarch64__) || defined(__FreeBSD__)
+#if defined(__aarch64__) || defined(__EMSCRIPTEN__) || defined(__FreeBSD__)
 #include <sys/time.h>
 #endif
 
@@ -500,7 +500,7 @@ public:
 #elif defined(G3D_LINUX)
 
     inline uint64 System::getCycleCount() {
-#       if defined(__aarch64__)
+#       if defined(__aarch64__) || defined(__EMSCRIPTEN__)
 #           if (__ARM_ARCH >= 6)  // V6 is the earliest arch that has a standard cyclecount
                 uint32_t pmccntr;
                 uint32_t pmuseren;

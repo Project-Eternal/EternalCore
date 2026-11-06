@@ -50,6 +50,9 @@ public:
     // cleanup
     void Die();
 
+    // forgets the events (they remove what they spawned): the maps must still be there
+    void Unload();
+
     // called when a player enters an outdoor pvp area
     void HandlePlayerEnterZone(Player* player, uint32 areaflag);
 

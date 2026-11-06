@@ -85,8 +85,11 @@ set(rev_year ${CMAKE_MATCH_1})
 set(rev_month ${CMAKE_MATCH_2})
 set(rev_day ${CMAKE_MATCH_3})
 
+# The product name printed in the version string and the startup banner (a derivative of AzerothCore sets its own)
+set(ACORE_PRODUCT_NAME "AzerothCore" CACHE STRING "Product name shown in the version string and the startup banner")
+
 # Create the actual revision.h file from the above params
-if(NOT "${rev_hash_cached}" STREQUAL "${rev_hash}" OR NOT "${rev_branch_cached}" STREQUAL "${rev_branch}" OR NOT EXISTS "${BUILDDIR}/revision.h")
+if(NOT "${rev_hash_cached}" STREQUAL "${rev_hash}" OR NOT "${product_name_cached}" STREQUAL "${ACORE_PRODUCT_NAME}" OR NOT "${rev_branch_cached}" STREQUAL "${rev_branch}" OR NOT EXISTS "${BUILDDIR}/revision.h")
   configure_file(
     "${CMAKE_SOURCE_DIR}/src/cmake/revision.h.in.cmake"
     "${BUILDDIR}/revision.h"
@@ -94,4 +97,5 @@ if(NOT "${rev_hash_cached}" STREQUAL "${rev_hash}" OR NOT "${rev_branch_cached}"
   )
   set(rev_hash_cached "${rev_hash}" CACHE INTERNAL "Cached commit-hash")
   set(rev_branch_cached "${rev_branch}" CACHE INTERNAL "Cached branch name")
+  set(product_name_cached "${ACORE_PRODUCT_NAME}" CACHE INTERNAL "Cached product name")
 endif()

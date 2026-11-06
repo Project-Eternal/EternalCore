@@ -24,6 +24,11 @@ void ScriptMgr::OnBeforeMailDraftSendMailTo(MailDraft* mailDraft, MailReceiver c
     CALL_ENABLED_HOOKS(MailScript, MAILHOOK_ON_BEFORE_MAIL_DRAFT_SEND_MAIL_TO, script->OnBeforeMailDraftSendMailTo(mailDraft, receiver, sender, checked, deliver_delay, custom_expiration, deleteMailItemsFromDB, sendMail));
 }
 
+void ScriptMgr::OnMailExpiryDelay(MailDraft* mailDraft, MailSender const& sender, uint32& expireDelay)
+{
+    CALL_ENABLED_HOOKS(MailScript, MAILHOOK_ON_MAIL_EXPIRY_DELAY, script->OnMailExpiryDelay(mailDraft, sender, expireDelay));
+}
+
 MailScript::MailScript(char const* name, std::vector<uint16> enabledHooks)
     : ScriptObject(name, MAILHOOK_END)
 {

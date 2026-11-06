@@ -384,6 +384,7 @@ void MapMgr::GetNumPlayersInInstances(uint32& dungeons, uint32& battlegrounds, u
 void MapMgr::InitInstanceIds()
 {
     _nextInstanceId = 1;
+    _instanceIds.clear();   // (the ids of another realm's instances are not in use)
 
     QueryResult result = CharacterDatabase.Query("SELECT MAX(id) FROM instance");
     if (result)

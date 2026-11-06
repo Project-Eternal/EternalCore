@@ -21,7 +21,10 @@ endif()
 
 include("${CMAKE_SOURCE_DIR}/src/cmake/platform/settings.cmake")
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64|AMD64")
+if(EMSCRIPTEN)
+  # Emscripten reports its processor as "x86": that would select the SSE code paths and flags
+  set(ACORE_SYSTEM_PROCESSOR "wasm32")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64|AMD64")
   set(ACORE_SYSTEM_PROCESSOR "amd64")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM|aarch|AARCH)64$")
   set(ACORE_SYSTEM_PROCESSOR "arm64")

@@ -23,6 +23,8 @@
 #include <G3D/Plane.h>
 #include <memory>
 
+class MapDataProvider;
+
 #define MAX_HEIGHT            100000.0f                     // can be use for find ground height at surface
 #define INVALID_HEIGHT       -100000.0f                     // for check, must be equal to VMAP_INVALID_HEIGHT, real value for unknown height is VMAP_INVALID_HEIGHT_VALUE
 #define MAX_FALL_DISTANCE     250000.0f                     // "unlimited fall" to find VMap ground if it is available, just larger than MAX_HEIGHT - INVALID_HEIGHT
@@ -239,9 +241,15 @@ class GridTerrainData
     float getHeightFromUint16(float x, float y) const;
     float getHeightFromUint8(float x, float y) const;
     float getHeightFromFlat(float x, float y) const;
+    float getHeightFromProvider(float x, float y) const;
+
+    // a grid answered by a MapDataProvider (no data of its own)
+    MapDataProvider* _provider = nullptr;
+    uint32 _providerMapId = 0;
 
 public:
     GridTerrainData();
+    GridTerrainData(MapDataProvider* provider, uint32 mapId);
     ~GridTerrainData() { };
     TerrainMapDataReadResult Load(std::string const& mapFileName);
 

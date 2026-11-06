@@ -1,6 +1,7 @@
 #include "GridTerrainLoader.h"
 #include "IVMapMgr.h"
 #include "Map.h"
+#include "MapDataProvider.h"
 #include "MMapMgr.h"
 #include "ScriptMgr.h"
 #include "VMapFactory.h"
@@ -24,6 +25,15 @@ void GridTerrainLoader::LoadMap()
     {
         Map* parentMap = const_cast<Map*>(_map->GetParent());
         _grid.SetTerrainData(parentMap->GetGridTerrainDataSharedPtr(GridCoord(_grid.GetX(), _grid.GetY())));
+        return;
+    }
+
+    // a provider answers for the terrain instead of the map file
+    if (MapDataProvider* provider = MapDataProvider::Get())
+    {
+        if (provider->HasTerrain(_map->GetId(), _grid.GetX(), _grid.GetY()))
+            _grid.SetTerrainData(std::make_shared<GridTerrainData>(provider, _map->GetId()));
+        sScriptMgr->OnLoadGridMap(_map, _grid.GetTerrainData(), _grid.GetX(), _grid.GetY());
         return;
     }
 
@@ -93,6 +103,9 @@ void GridTerrainLoader::LoadMMap()
 
 bool GridTerrainLoader::ExistMap(uint32 mapid, int gx, int gy)
 {
+    if (MapDataProvider* provider = MapDataProvider::Get())
+        return provider->HasTerrain(mapid, gx, gy);
+
     std::string const mapFileName = Acore::StringFormat("{}maps/{:03}{:02}{:02}.map", sWorld->GetDataPath(), mapid, gx, gy);
     std::ifstream fileStream(mapFileName, std::ios::binary);
     if (fileStream.fail())
@@ -120,6 +133,9 @@ bool GridTerrainLoader::ExistMap(uint32 mapid, int gx, int gy)
 
 bool GridTerrainLoader::ExistVMap(uint32 mapid, int gx, int gy)
 {
+    if (MapDataProvider::Get())
+        return true;   // the provider answers for the models
+
     if (VMAP::IVMapMgr* vmgr = VMAP::VMapFactory::createOrGetVMapMgr())
     {
         if (vmgr->isMapLoadingEnabled())

@@ -89,6 +89,15 @@ Guild* GuildMgr::GetGuildByLeader(ObjectGuid guid) const
     return nullptr;
 }
 
+void GuildMgr::Unload()
+{
+    for (auto const& [id, guild] : GuildStore)
+        delete guild;
+
+    GuildStore.clear();
+    NextGuildId = 1;
+}
+
 void GuildMgr::LoadGuilds()
 {
     // 1. Load all guilds

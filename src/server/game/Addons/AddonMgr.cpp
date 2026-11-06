@@ -36,8 +36,16 @@ namespace AddonMgr
         BannedAddonList m_bannedAddons;
     }
 
+    void Unload()
+    {
+        m_knownAddons.clear();
+        m_bannedAddons.clear();
+    }
+
     void LoadFromDB()
     {
+        Unload();   // (for the reload case)
+
         uint32 oldMSTime = getMSTime();
 
         QueryResult result = CharacterDatabase.Query("SELECT name, crc FROM addons");

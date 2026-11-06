@@ -404,7 +404,7 @@ public:
     void RemoveGameObjectModel(GameObjectModel const& model) { _mapCollisionData.GetDynamicTree().remove(model); }
     void InsertGameObjectModel(GameObjectModel const& model) { _mapCollisionData.GetDynamicTree().insert(model); }
     [[nodiscard]] bool ContainsGameObjectModel(GameObjectModel const& model) const { return _mapCollisionData.GetDynamicTree().contains(model);}
-    [[nodiscard]] DynamicMapTree const& GetDynamicMapTree() const { return _mapCollisionData.GetDynamicTree(); }
+    [[nodiscard]] DynamicVMapCollisionData const& GetDynamicMapTree() const { return _mapCollisionData.GetDynamicTree(); }
     [[nodiscard]] float GetGameObjectFloor(uint32 phasemask, float x, float y, float z, float maxSearchDist = DEFAULT_HEIGHT_SEARCH) const
     {
         return _mapCollisionData.GetDynamicTree().getHeight(x, y, z, maxSearchDist, phasemask);

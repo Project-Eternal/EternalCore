@@ -36,6 +36,8 @@
 #include "WaypointMovementGenerator.h"
 #include "SmartScriptMgr.h"
 
+AC_GAME_API extern bool (*ReactionEffect)(WorldObject const* object, int kind);   // Unit.cpp (a module's)
+
 inline MovementGenerator* GetIdleMovementGenerator()
 {
     return sMovementGeneratorRegistry->GetRegistryItem(IDLE_MOTION_TYPE)->Create();
@@ -294,6 +296,9 @@ void MotionMaster::MoveTargetedHome(bool walk /*= false*/)
  */
 void MotionMaster::MoveConfused()
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     // Xinef: do not allow to move with UNIT_FLAG_DISABLE_MOVE
     if (_owner->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE))
         return;
@@ -315,6 +320,9 @@ void MotionMaster::MoveConfused()
  */
 void MotionMaster::MoveChase(Unit* target, std::optional<ChaseRange> dist, std::optional<ChaseAngle> angle)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     // ignore movement request if target not exist
     if (!target || target == _owner || _owner->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE))
         return;
@@ -447,6 +455,9 @@ void MotionMaster::MoveCircleTarget(Unit* target)
  */
 void MotionMaster::MoveFollow(Unit* target, float dist, float angle, MovementSlot slot, bool inheritWalkState, bool inheritSpeed)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     // ignore movement request if target not exist
     if (!target || target == _owner || _owner->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE))
     {
@@ -486,6 +497,9 @@ void MotionMaster::MoveFormation(Unit* leader, float dist, float angle, uint32 p
  */
 void MotionMaster::MovePoint(uint32 id, float x, float y, float z, ForcedMovement forcedMovement, float speed, float orientation, bool generatePath, bool forceDestination, MovementSlot slot, std::optional<AnimTier> animTier)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     if (_owner->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE))
         return;
 
@@ -620,6 +634,9 @@ void MotionMaster::MoveTakeoff(uint32 id, float x, float y, float z, float speed
 void MotionMaster::MoveKnockbackFrom(float srcX, float srcY, float speedXY, float speedZ,
     bool allowClientControlled /*= false*/)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     //this function may make players fall below map
     if (!allowClientControlled && _owner->IsPlayer() && _owner->IsClientControlled())
         return;
@@ -658,6 +675,9 @@ void MotionMaster::MoveKnockbackFrom(float srcX, float srcY, float speedXY, floa
  */
 void MotionMaster::MoveJumpTo(float angle, float speedXY, float speedZ)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     //this function may make players fall below map
     if (_owner->IsPlayer())
         return;
@@ -670,11 +690,18 @@ void MotionMaster::MoveJumpTo(float angle, float speedXY, float speedZ)
     MoveJump(x, y, z, speedXY, speedZ);
 }
 
+AC_GAME_API extern bool (*EffectOnMirror)(Unit* target, int kind, float a, float b, float c, float d, float e);   // Unit.cpp (a module's)
+
 /**
  * @brief The unit will jump to a specific point
  */
 void MotionMaster::MoveJump(float x, float y, float z, float speedXY, float speedZ, uint32 id, Unit const* target)
 {
+    if (EffectOnMirror && !EffectOnMirror(_owner, 2, x, y, z, speedXY, speedZ))
+        return;
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     LOG_DEBUG("movement.motionmaster", "Unit ({}) jump to point (X: {} Y: {} Z: {})", _owner->GetGUID().ToString(), x, y, z);
 
     if (speedXY <= 0.1f)
@@ -824,6 +851,9 @@ void MotionMaster::MoveFall(uint32 id /*=0*/, bool addFlagForNPC)
  */
 void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id, Movement::PointsArray const* path, bool generatePath, float orientation /* = 0.0f*/, ObjectGuid targetGUID /*= ObjectGuid::Empty*/)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     if (_owner->HasUnitFlag(UNIT_FLAG_DISABLE_MOVE))
         return;
 
@@ -847,6 +877,9 @@ void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id,
  */
 void MotionMaster::MoveCharge(PathGenerator const& path, float speed /*= SPEED_CHARGE*/, ObjectGuid targetGUID /*= ObjectGuid::Empty*/)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     G3D::Vector3 dest = path.GetActualEndPosition();
 
     MoveCharge(dest.x, dest.y, dest.z, speed, EVENT_CHARGE_PREPATH, nullptr, false, 0.0f, targetGUID);
@@ -900,6 +933,9 @@ void MotionMaster::MoveSeekAssistanceDistract(uint32 time)
  */
 void MotionMaster::MoveFleeing(Unit* enemy, uint32 time)
 {
+    if (ReactionEffect && !ReactionEffect(_owner, 5))
+        return;
+
     if (!enemy)
         return;
 

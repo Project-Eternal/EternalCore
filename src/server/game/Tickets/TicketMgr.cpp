@@ -299,6 +299,17 @@ void TicketMgr::ResetTickets()
     CharacterDatabase.Execute(stmt);
 }
 
+void TicketMgr::Unload()
+{
+    for (auto const& [id, ticket] : _ticketList)
+        delete ticket;
+
+    _ticketList.clear();
+    _lastTicketId = 0;
+    _lastSurveyId = 0;
+    _openTicketCount = 0;
+}
+
 void TicketMgr::LoadTickets()
 {
     uint32 oldMSTime = getMSTime();

@@ -79,6 +79,16 @@ void ScriptMgr::OnBeforeFinalizePlayerWorldSession(uint32& cacheVersion)
     CALL_ENABLED_HOOKS(WorldScript, WORLDHOOK_ON_BEFORE_FINALIZE_PLAYER_WORLD_SESSION, script->OnBeforeFinalizePlayerWorldSession(cacheVersion));
 }
 
+void ScriptMgr::OnBeforeRealmUnbind(uint32 realmId)
+{
+    CALL_ENABLED_HOOKS(WorldScript, WORLDHOOK_ON_BEFORE_REALM_UNBIND, script->OnBeforeRealmUnbind(realmId));
+}
+
+void ScriptMgr::OnAfterRealmBind(uint32 realmId)
+{
+    CALL_ENABLED_HOOKS(WorldScript, WORLDHOOK_ON_AFTER_REALM_BIND, script->OnAfterRealmBind(realmId));
+}
+
 void ScriptMgr::OnBeforeWorldInitialized()
 {
     CALL_ENABLED_HOOKS(WorldScript, WORLDHOOK_ON_BEFORE_WORLD_INITIALIZED, script->OnBeforeWorldInitialized());

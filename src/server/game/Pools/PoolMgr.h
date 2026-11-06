@@ -132,6 +132,10 @@ public:
 
     void LoadFromDB();
     void LoadQuestPools();
+    // The quests of the pools that are open today are saved in the characters database. LoadFromDB spawns them (restoring that state) unless the realm can change
+    // (World.RealmSwitch.Enable), then SpawnQuestPools does it when the realm is bound; DespawnQuestPools takes them out of the quest relations again.
+    void SpawnQuestPools();
+    void DespawnQuestPools();
     void SaveQuestsToDB(bool daily, bool weekly, bool other);
 
     void Initialize();

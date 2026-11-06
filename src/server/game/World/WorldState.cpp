@@ -47,6 +47,37 @@ WorldState::~WorldState()
 {
 }
 
+void WorldState::Unload()
+{
+    std::lock_guard<std::mutex> guard(_mutex);
+    _worldstates.clear();
+    _adalSongOfBattleTimer = 0;
+    _isMagtheridonHeadSpawnedHorde = false;
+    _isMagtheridonHeadSpawnedAlliance = false;
+    for (auto& [id, state] : _transportStates)
+        state = WORLD_STATE_CONDITION_STATE_NONE;
+
+    m_siData.m_state = STATE_0_DISABLED;
+    m_siData.Reset();
+    {
+        std::lock_guard<std::mutex> siGuard(m_siData.m_siMutex);
+        m_siData.m_pendingInvasions.clear();
+        m_siData.m_pendingPallids.clear();
+        for (auto& [zoneId, zone] : m_siData.m_activeInvasions)
+            zone.mouthGuid = ObjectGuid::Empty;
+        for (auto& [zoneId, zone] : m_siData.m_cityAttacks)
+            zone.pallidGuid = ObjectGuid::Empty;
+    }
+
+    std::lock_guard<std::mutex> sunsGuard(m_sunsReachData.m_sunsReachReclamationMutex);
+    m_sunsReachData.m_phase = SUNS_REACH_PHASE_1_STAGING_AREA;
+    m_sunsReachData.m_subphaseMask = 0;
+    m_sunsReachData.m_gate = SUNWELL_ALL_GATES_CLOSED;
+    memset(m_sunsReachData.m_sunsReachReclamationCounters, 0, sizeof(m_sunsReachData.m_sunsReachReclamationCounters));
+    memset(m_sunsReachData.m_gateCounters, 0, sizeof(m_sunsReachData.m_gateCounters));
+    m_sunsReachData.m_sunsReachReclamationPlayers.clear();
+}
+
 void WorldState::Load()
 {
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_WORLD_STATE);

@@ -39,6 +39,12 @@ void OutdoorPvPMgr::Die()
     m_OutdoorPvPDatas.clear();
 }
 
+void OutdoorPvPMgr::Unload()
+{
+    m_OutdoorPvPMap.clear();
+    Die();
+}
+
 void OutdoorPvPMgr::InitOutdoorPvP()
 {
     uint32 oldMSTime = getMSTime();

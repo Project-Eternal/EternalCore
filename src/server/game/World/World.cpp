@@ -20,6 +20,7 @@
 */
 
 #include "World.h"
+#include <thread>
 #include "AccountMgr.h"
 #include "AchievementMgr.h"
 #include "AddonMgr.h"
@@ -322,6 +323,10 @@ void World::SetInitialWorldSettings()
     ///- Initialize config settings
     LoadConfigSettings();
 
+    // With World.RealmSwitch.Enable the loads from the characters database are left out of this start and made by BindRealm at its end (and again whenever the
+    // realm changes); the places below are marked "realm"
+    bool const realmLater = getBoolConfig(CONFIG_REALM_SWITCH_ENABLE);
+
     ///- Initialize Allowed Security Level
     LoadDBAllowedSecurityLevel();
 
@@ -445,12 +450,15 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading Instance Template...");
     sObjectMgr->LoadInstanceTemplate();
 
-    LOG_INFO("server.loading", "Loading Character Cache...");
-    sCharacterCache->LoadCharacterCacheStorage();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading Character Cache...");
+        sCharacterCache->LoadCharacterCacheStorage();
 
-    // Must be called before `creature_respawn`/`gameobject_respawn` tables
-    LOG_INFO("server.loading", "Loading Instances...");
-    sInstanceSaveMgr->LoadInstances();
+        // Must be called before `creature_respawn`/`gameobject_respawn` tables
+        LOG_INFO("server.loading", "Loading Instances...");
+        sInstanceSaveMgr->LoadInstances();
+    }
 
     LOG_INFO("server.loading", "Loading Broadcast Texts...");
     sObjectMgr->LoadBroadcastTexts();
@@ -706,10 +714,13 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading Pet Name Parts...");
     sObjectMgr->LoadPetNames();
 
-    CharacterDatabaseCleaner::CleanDatabase();
+    if (!realmLater)   // realm
+    {
+        CharacterDatabaseCleaner::CleanDatabase();
 
-    LOG_INFO("server.loading", "Loading The Max Pet Number...");
-    sObjectMgr->LoadPetNumber();
+        LOG_INFO("server.loading", "Loading The Max Pet Number...");
+        sObjectMgr->LoadPetNumber();
+    }
 
     LOG_INFO("server.loading", "Loading Pet Level Stats...");
     sObjectMgr->LoadPetLevelInfo();
@@ -717,8 +728,11 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading Player Level Dependent Mail Rewards...");
     sObjectMgr->LoadMailLevelRewards();
 
-    LOG_INFO("server.loading", "Load Mail Server definitions...");
-    sServerMailMgr->LoadMailServerTemplates();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Load Mail Server definitions...");
+        sServerMailMgr->LoadMailServerTemplates();
+    }
 
     // Loot tables
     LoadLootTables();
@@ -745,33 +759,36 @@ void World::SetInitialWorldSettings()
     sAchievementMgr->LoadRewards();
     LOG_INFO("server.loading", "Loading Achievement Reward Locales...");
     sAchievementMgr->LoadRewardLocales();
-    LOG_INFO("server.loading", "Loading Completed Achievements...");
-    sAchievementMgr->LoadCompletedAchievements();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading Completed Achievements...");
+        sAchievementMgr->LoadCompletedAchievements();
 
-    ///- Load dynamic data tables from the database
-    LOG_INFO("server.loading", "Loading Item Auctions...");
-    sAuctionMgr->LoadAuctionItems();
-    LOG_INFO("server.loading", "Loading Auctions...");
-    sAuctionMgr->LoadAuctions();
+        ///- Load dynamic data tables from the database
+        LOG_INFO("server.loading", "Loading Item Auctions...");
+        sAuctionMgr->LoadAuctionItems();
+        LOG_INFO("server.loading", "Loading Auctions...");
+        sAuctionMgr->LoadAuctions();
 
-    sGuildMgr->LoadGuilds();
+        sGuildMgr->LoadGuilds();
 
-    LOG_INFO("server.loading", "Loading ArenaTeams...");
-    sArenaTeamMgr->LoadArenaTeams();
+        LOG_INFO("server.loading", "Loading ArenaTeams...");
+        sArenaTeamMgr->LoadArenaTeams();
 
-    LOG_INFO("server.loading", "Loading Groups...");
-    sGroupMgr->LoadGroups();
+        LOG_INFO("server.loading", "Loading Groups...");
+        sGroupMgr->LoadGroups();
 
-    LOG_INFO("server.loading", "Loading Reserved Names...");
-    sObjectMgr->LoadReservedPlayerNamesDB();
-    sObjectMgr->LoadReservedPlayerNamesDBC(); // Needs to be after LoadReservedPlayerNamesDB()
+        LOG_INFO("server.loading", "Loading Reserved Names...");
+        sObjectMgr->LoadReservedPlayerNamesDB();
+        sObjectMgr->LoadReservedPlayerNamesDBC(); // Needs to be after LoadReservedPlayerNamesDB()
 
-    LOG_INFO("server.loading", "Loading Profanity Names...");
-    sObjectMgr->LoadProfanityNamesFromDB();
-    sObjectMgr->LoadProfanityNamesFromDBC(); // Needs to be after LoadProfanityNamesFromDB()
+        LOG_INFO("server.loading", "Loading Profanity Names...");
+        sObjectMgr->LoadProfanityNamesFromDB();
+        sObjectMgr->LoadProfanityNamesFromDBC(); // Needs to be after LoadProfanityNamesFromDB()
 
-    LOG_INFO("server.loading", "Loading Chat Filter...");
-    sObjectMgr->LoadChatFilter();
+        LOG_INFO("server.loading", "Loading Chat Filter...");
+        sObjectMgr->LoadChatFilter();
+    }
 
     LOG_INFO("server.loading", "Loading GameObjects for Quests...");
     sObjectMgr->LoadGameObjectForQuests();
@@ -809,8 +826,11 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading Creature Formations...");
     sFormationMgr->LoadCreatureFormations();
 
-    LOG_INFO("server.loading", "Loading WorldStates...");              // must be loaded before battleground, outdoor PvP and conditions
-    sWorldState->LoadWorldStates();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading WorldStates...");              // must be loaded before battleground, outdoor PvP and conditions
+        sWorldState->LoadWorldStates();
+    }
 
     LOG_INFO("server.loading", "Loading Conditions...");
     sConditionMgr->LoadConditions();
@@ -833,26 +853,19 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading Faction Change Quest Pairs...");
     sObjectMgr->LoadFactionChangeQuests();
 
-    LOG_INFO("server.loading", "Loading GM Tickets...");
-    sTicketMgr->LoadTickets();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading GM Tickets...");
+        sTicketMgr->LoadTickets();
 
-    LOG_INFO("server.loading", "Loading GM Surveys...");
-    sTicketMgr->LoadSurveys();
+        LOG_INFO("server.loading", "Loading GM Surveys...");
+        sTicketMgr->LoadSurveys();
 
-    LOG_INFO("server.loading", "Loading Client Addons...");
-    AddonMgr::LoadFromDB();
+        LOG_INFO("server.loading", "Loading Client Addons...");
+        AddonMgr::LoadFromDB();
 
-    // pussywizard:
-    LOG_INFO("server.loading", "Deleting Invalid Mail Items...");
-    LOG_INFO("server.loading", " ");
-    CharacterDatabase.Execute("DELETE mi FROM mail_items mi LEFT JOIN item_instance ii ON mi.item_guid = ii.guid WHERE ii.guid IS NULL");
-    CharacterDatabase.Execute("DELETE mi FROM mail_items mi LEFT JOIN mail m ON mi.mail_id = m.id WHERE m.id IS NULL");
-    CharacterDatabase.Execute("UPDATE mail m LEFT JOIN mail_items mi ON m.id = mi.mail_id SET m.has_items=0 WHERE m.has_items<>0 AND mi.mail_id IS NULL");
-
-    ///- Handle outdated emails (delete/return)
-    LOG_INFO("server.loading", "Returning Old Mails...");
-    LOG_INFO("server.loading", " ");
-    sMailMgr->ReturnOrDeleteOldMails(false);
+        CleanMailOfTheRealm();
+    }
 
     ///- Load AutoBroadCast
     LOG_INFO("server.loading", "Loading Autobroadcasts...");
@@ -889,8 +902,11 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading SmartAI Scripts...");
     sSmartScriptMgr->LoadSmartAIFromDB();
 
-    LOG_INFO("server.loading", "Loading Calendar Data...");
-    sCalendarMgr->LoadFromDB();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading Calendar Data...");
+        sCalendarMgr->LoadFromDB();
+    }
 
     LOG_INFO("server.loading", "Initializing SpellInfo Precomputed Data..."); // must be called after loading items, professions, spells and pretty much anything
     LOG_INFO("server.loading", " ");
@@ -940,22 +956,25 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", " ");
     sMapMgr->Initialize();
 
-    LOG_INFO("server.loading", "Starting Game Event system...");
-    LOG_INFO("server.loading", " ");
-    uint32 nextGameEvent = sGameEventMgr->StartSystem();
-    _timers[WUPDATE_EVENTS].SetInterval(nextGameEvent);    //depend on next event
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Starting Game Event system...");
+        LOG_INFO("server.loading", " ");
+        uint32 nextGameEvent = sGameEventMgr->StartSystem();
+        _timers[WUPDATE_EVENTS].SetInterval(nextGameEvent);    //depend on next event
 
-    LOG_INFO("server.loading", "Loading WorldState...");
-    sWorldState->Load(); // must be called after loading game events
+        LOG_INFO("server.loading", "Loading WorldState...");
+        sWorldState->Load(); // must be called after loading game events
 
-    // Delete all characters which have been deleted X days before
-    Player::DeleteOldCharacters();
+        // Delete all characters which have been deleted X days before
+        Player::DeleteOldCharacters();
 
-    // Delete all items which have been deleted X days before
-    Player::DeleteOldRecoveryItems();
+        // Delete all items which have been deleted X days before
+        Player::DeleteOldRecoveryItems();
 
-    // Delete all custom channels which haven't been used for PreserveCustomChannelDuration days.
-    Channel::CleanOldChannelsInDB();
+        // Delete all custom channels which haven't been used for PreserveCustomChannelDuration days.
+        Channel::CleanOldChannelsInDB();
+    }
 
     LOG_INFO("server.loading", "Initializing Opcodes...");
     opcodeTable.Initialize();
@@ -970,65 +989,61 @@ void World::SetInitialWorldSettings()
     ///- Initialize Battlegrounds
     LOG_INFO("server.loading", "Starting Battleground System");
     sBattlegroundMgr->LoadBattlegroundTemplates();
-    sBattlegroundMgr->InitAutomaticArenaPointDistribution();
+    if (!realmLater)   // realm
+        sBattlegroundMgr->InitAutomaticArenaPointDistribution();
 
-    ///- Initialize outdoor pvp
-    LOG_INFO("server.loading", "Starting Outdoor PvP System");
-    sOutdoorPvPMgr->InitOutdoorPvP();
+    if (!realmLater)   // realm
+    {
+        ///- Initialize outdoor pvp
+        LOG_INFO("server.loading", "Starting Outdoor PvP System");
+        sOutdoorPvPMgr->InitOutdoorPvP();
 
-    ///- Initialize Battlefield
-    LOG_INFO("server.loading", "Starting Battlefield System");
-    sBattlefieldMgr->InitBattlefield();
+        ///- Initialize Battlefield
+        LOG_INFO("server.loading", "Starting Battlefield System");
+        sBattlefieldMgr->InitBattlefield();
 
-    LOG_INFO("server.loading", "Loading Transports...");
-    sTransportMgr->SpawnContinentTransports();
+        LOG_INFO("server.loading", "Loading Transports...");
+        sTransportMgr->SpawnContinentTransports();
+    }
 
     ///- Initialize Warden
     LOG_INFO("server.loading", "Loading Warden Checks..." );
     sWardenCheckMgr->LoadWardenChecks();
 
-    LOG_INFO("server.loading", "Loading Warden Action Overrides..." );
-    sWardenCheckMgr->LoadWardenOverrides();
+    if (!realmLater)   // realm
+    {
+        LOG_INFO("server.loading", "Loading Warden Action Overrides..." );
+        sWardenCheckMgr->LoadWardenOverrides();
+    }
 
     LOG_INFO("server.loading", "Deleting Expired Bans...");
     LoginDatabase.Execute("DELETE FROM ip_banned WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate<>bandate");      // One-time query
 
-    LOG_INFO("server.loading", "Calculate Next Daily Quest Reset Time...");
-    InitDailyQuestResetTime();
+    if (!realmLater)   // realm
+    {
+        InitResetTimes();
 
-    LOG_INFO("server.loading", "Calculate Next Weekly Quest Reset Time..." );
-    InitWeeklyQuestResetTime();
+        LOG_INFO("server.loading", "Load Petitions...");
+        sPetitionMgr->LoadPetitions();
 
-    LOG_INFO("server.loading", "Calculate Next Monthly Quest Reset Time...");
-    InitMonthlyQuestResetTime();
+        LOG_INFO("server.loading", "Load Petition Signs...");
+        sPetitionMgr->LoadSignatures();
 
-    LOG_INFO("server.loading", "Calculate Random Battleground Reset Time..." );
-    InitRandomBGResetTime();
+        LOG_INFO("server.loading", "Load Stored Loot Items...");
+        sLootItemStorage->LoadStorageFromDB();
 
-    LOG_INFO("server.loading", "Calculate Deletion Of Old Calendar Events Time...");
-    InitCalendarOldEventsDeletionTime();
+        LOG_INFO("server.loading", "Load Channel Rights...");
+        ChannelMgr::LoadChannelRights();
 
-    LOG_INFO("server.loading", "Calculate Guild Cap Reset Time...");
-    LOG_INFO("server.loading", " ");
-    InitGuildResetTime();
-
-    LOG_INFO("server.loading", "Load Petitions...");
-    sPetitionMgr->LoadPetitions();
-
-    LOG_INFO("server.loading", "Load Petition Signs...");
-    sPetitionMgr->LoadSignatures();
-
-    LOG_INFO("server.loading", "Load Stored Loot Items...");
-    sLootItemStorage->LoadStorageFromDB();
-
-    LOG_INFO("server.loading", "Load Channel Rights...");
-    ChannelMgr::LoadChannelRights();
-
-    LOG_INFO("server.loading", "Load Channels...");
-    ChannelMgr::LoadChannels();
+        LOG_INFO("server.loading", "Load Channels...");
+        ChannelMgr::LoadChannels();
+    }
 
     LOG_INFO("server.loading", "Loading AntiDos opcode policies");
     sWorldGlobals->LoadAntiDosOpcodePolicies();
+
+    if (realmLater)
+        BindRealm(realm.Id.Realm);
 
     sScriptMgr->OnBeforeWorldInitialized();
 
@@ -1128,8 +1143,366 @@ void World::DetectDBCLang()
 }
 
 /// Update the World !
+// ---------------------------------------------------------------- the realm
+
+void World::CleanMailOfTheRealm()
+{
+    // pussywizard:
+    LOG_INFO("server.loading", "Deleting Invalid Mail Items...");
+    LOG_INFO("server.loading", " ");
+    CharacterDatabase.Execute("DELETE mi FROM mail_items mi LEFT JOIN item_instance ii ON mi.item_guid = ii.guid WHERE ii.guid IS NULL");
+    CharacterDatabase.Execute("DELETE mi FROM mail_items mi LEFT JOIN mail m ON mi.mail_id = m.id WHERE m.id IS NULL");
+    CharacterDatabase.Execute("UPDATE mail m LEFT JOIN mail_items mi ON m.id = mi.mail_id SET m.has_items=0 WHERE m.has_items<>0 AND mi.mail_id IS NULL");
+
+    ///- Handle outdated emails (delete/return)
+    LOG_INFO("server.loading", "Returning Old Mails...");
+    LOG_INFO("server.loading", " ");
+    sMailMgr->ReturnOrDeleteOldMails(false);
+}
+
+void World::InitResetTimes()
+{
+    LOG_INFO("server.loading", "Calculate Next Daily Quest Reset Time...");
+    InitDailyQuestResetTime();
+
+    LOG_INFO("server.loading", "Calculate Next Weekly Quest Reset Time..." );
+    InitWeeklyQuestResetTime();
+
+    LOG_INFO("server.loading", "Calculate Next Monthly Quest Reset Time...");
+    InitMonthlyQuestResetTime();
+
+    LOG_INFO("server.loading", "Calculate Random Battleground Reset Time..." );
+    InitRandomBGResetTime();
+
+    LOG_INFO("server.loading", "Calculate Deletion Of Old Calendar Events Time...");
+    InitCalendarOldEventsDeletionTime();
+
+    LOG_INFO("server.loading", "Calculate Guild Cap Reset Time...");
+    LOG_INFO("server.loading", " ");
+    InitGuildResetTime();
+}
+
+// what the realm list says about the realm (the addresses are those of the start: the server keeps its listener)
+void World::LoadRealmInfo()
+{
+    QueryResult result = LoginDatabase.Query("SELECT name, icon, flag, timezone, allowedSecurityLevel, population, gamebuild FROM realmlist WHERE id = {}", realm.Id.Realm);
+    if (!result)
+    {
+        LOG_ERROR("server.loading", "Realm {} is not in the realm list.", realm.Id.Realm);
+        return;
+    }
+
+    Field* fields = result->Fetch();
+    realm.Name = fields[0].Get<std::string>();
+    realm.Type = fields[1].Get<uint8>();
+    realm.Flags = RealmFlags(fields[2].Get<uint8>());
+    realm.Timezone = fields[3].Get<uint8>();
+    realm.AllowedSecurityLevel = AccountTypes(fields[4].Get<uint8>());
+    realm.PopulationLevel = fields[5].Get<float>();
+    realm.Build = fields[6].Get<uint32>();
+}
+
+// The characters database of the realm: the one the server is open on is closed (its working copy is kept whole by the SQLite shim) and the realm's is
+// opened. World.RealmSwitch.CharacterDatabaseInfo is the connection string with "{}" for the realm number; without it the database stays as it is.
+bool World::OpenCharacterDatabaseFor(uint32 realmId)
+{
+    std::string info = sConfigMgr->GetOption<std::string>("World.RealmSwitch.CharacterDatabaseInfo", "");
+    if (info.empty())
+        return true;
+
+    for (size_t at = info.find("{}"); at != std::string::npos; at = info.find("{}", at))
+        info.replace(at, 2, std::to_string(realmId));
+
+    if (_characterDatabaseInfo.empty() || info == _characterDatabaseInfo)
+    {
+        _characterDatabaseInfo = info;   // (the first realm: StartDB opened it from CharacterDatabaseInfo)
+        return true;
+    }
+
+    LOG_INFO("server.loading", "Opening the characters database of realm {} ({})...", realmId, info);
+    // The results of the queries still on their way hold the connection they came from (the rows are fetched from it when they are used): they are used
+    // first, while it is open
+    for (int i = 0; i < 200 && (i < 5 || CharacterDatabase.QueueSize() > 0); ++i)
+    {
+        ProcessQueryCallbacks();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    ProcessQueryCallbacks();
+    CharacterDatabase.Close();
+    CharacterDatabase.SetConnectionInfo(info, sConfigMgr->GetOption<uint8>("CharacterDatabase.WorkerThreads", 1), sConfigMgr->GetOption<uint8>("CharacterDatabase.SynchThreads", 1));
+    if (CharacterDatabase.Open() || !CharacterDatabase.PrepareStatements())
+    {
+        LOG_FATAL("server.loading", "The characters database of realm {} cannot be opened.", realmId);
+        World::StopNow(ERROR_EXIT_CODE);
+        return false;
+    }
+
+    _characterDatabaseInfo = info;
+    return true;
+}
+
+// Binds the realm: the order is that of the start. The first time (at the end of the start) the characters database is open already.
+void World::BindRealm(uint32 realmId)
+{
+    ASSERT(!_realmBound);
+    uint32 oldMSTime = getMSTime();
+    LOG_INFO("server.loading", " ");
+    LOG_INFO("server.loading", "Binding realm {}...", realmId);
+
+    realm.Id.Realm = realmId;
+    // (AC_REALM_ID is the override of the option RealmID, and what the SQLite shim expands in its settings to find the realm's kept database)
+#ifdef _WIN32
+    _putenv_s("AC_REALM_ID", std::to_string(realmId).c_str());
+#else
+    setenv("AC_REALM_ID", std::to_string(realmId).c_str(), 1);
+#endif
+    if (!OpenCharacterDatabaseFor(realmId))
+        return;
+
+    LoadRealmInfo();
+    LoadDBAllowedSecurityLevel();
+
+    // the settings of the realm: its file in the modules' configuration folder (World.RealmSwitch.Config, "{}" for the realm number) over the common ones
+    std::string configFile = sConfigMgr->GetOption<std::string>("World.RealmSwitch.Config", "");
+    for (size_t at = configFile.find("{}"); at != std::string::npos; at = configFile.find("{}", at))
+        configFile.replace(at, 2, std::to_string(realmId));
+    sConfigMgr->SetRealmConfigFile(configFile);
+    if (!configFile.empty() || _realmBoundOnce)
+        LoadConfigSettings(true);   // (also when the realm that was left had settings of its own: they are gone)
+
+    LoginDatabase.Execute("UPDATE realmlist SET icon = {}, timezone = {} WHERE id = '{}'", IsFFAPvPRealm() ? uint32(REALM_TYPE_PVP) : getIntConfig(CONFIG_GAME_TYPE), getIntConfig(CONFIG_REALM_ZONE), realmId);
+    // nobody is online on this realm
+    LoginDatabase.DirectExecute("UPDATE account SET online = 0 WHERE online = {}", realmId);
+    CharacterDatabase.DirectExecute("UPDATE characters SET online = 0 WHERE online <> 0");
+
+    sObjectMgr->SetHighestGuids();
+
+    LOG_INFO("server.loading", "Loading Character Cache...");
+    sCharacterCache->LoadCharacterCacheStorage();
+
+    // Must be called before `creature_respawn`/`gameobject_respawn` tables
+    LOG_INFO("server.loading", "Loading Instances...");
+    sInstanceSaveMgr->LoadInstances();
+
+    if (!sMapMgr->GetMapUpdater()->activated())
+        sMapMgr->Initialize();   // (the threads of the maps stop with the maps)
+
+    LOG_INFO("server.loading", "Loading Completed Achievements...");
+    sAchievementMgr->LoadCompletedAchievements();
+
+    CharacterDatabaseCleaner::CleanDatabase();
+
+    LOG_INFO("server.loading", "Loading The Max Pet Number...");
+    sObjectMgr->LoadPetNumber();
+
+    LOG_INFO("server.loading", "Load Mail Server definitions...");
+    sServerMailMgr->LoadMailServerTemplates();
+
+    ///- Load dynamic data tables from the database
+    LOG_INFO("server.loading", "Loading Item Auctions...");
+    sAuctionMgr->LoadAuctionItems();
+    LOG_INFO("server.loading", "Loading Auctions...");
+    sAuctionMgr->LoadAuctions();
+
+    sGuildMgr->LoadGuilds();
+
+    LOG_INFO("server.loading", "Loading ArenaTeams...");
+    sArenaTeamMgr->LoadArenaTeams();
+
+    LOG_INFO("server.loading", "Loading Groups...");
+    sGroupMgr->LoadGroups();
+
+    LOG_INFO("server.loading", "Loading Reserved Names...");
+    sObjectMgr->LoadReservedPlayerNamesDB();
+    sObjectMgr->LoadReservedPlayerNamesDBC(); // Needs to be after LoadReservedPlayerNamesDB()
+
+    LOG_INFO("server.loading", "Loading Profanity Names...");
+    sObjectMgr->LoadProfanityNamesFromDB();
+    sObjectMgr->LoadProfanityNamesFromDBC(); // Needs to be after LoadProfanityNamesFromDB()
+
+    LOG_INFO("server.loading", "Loading Chat Filter...");
+    sObjectMgr->LoadChatFilter();
+
+    LOG_INFO("server.loading", "Loading WorldStates...");              // must be loaded before battleground, outdoor PvP and conditions
+    sWorldState->LoadWorldStates();
+
+    LOG_INFO("server.loading", "Loading GM Tickets...");
+    sTicketMgr->LoadTickets();
+
+    LOG_INFO("server.loading", "Loading GM Surveys...");
+    sTicketMgr->LoadSurveys();
+
+    LOG_INFO("server.loading", "Loading Client Addons...");
+    AddonMgr::LoadFromDB();
+
+    CleanMailOfTheRealm();
+
+    LOG_INFO("server.loading", "Loading Calendar Data...");
+    sCalendarMgr->LoadFromDB();
+
+    // the saved state of the events, the quests of the pools (both come from the characters database), then the events start
+    sGameEventMgr->LoadRealmData();
+    sPoolMgr->SpawnQuestPools();
+
+    LOG_INFO("server.loading", "Starting Game Event system...");
+    LOG_INFO("server.loading", " ");
+    uint32 nextGameEvent = sGameEventMgr->StartSystem();
+    _timers[WUPDATE_EVENTS].SetInterval(nextGameEvent);    //depend on next event
+
+    LOG_INFO("server.loading", "Loading WorldState...");
+    sWorldState->Load(); // must be called after loading game events
+
+    // Delete all characters which have been deleted X days before
+    Player::DeleteOldCharacters();
+
+    // Delete all items which have been deleted X days before
+    Player::DeleteOldRecoveryItems();
+
+    // Delete all custom channels which haven't been used for PreserveCustomChannelDuration days.
+    Channel::CleanOldChannelsInDB();
+
+    sBattlegroundMgr->InitAutomaticArenaPointDistribution();
+
+    ///- Initialize outdoor pvp
+    LOG_INFO("server.loading", "Starting Outdoor PvP System");
+    sOutdoorPvPMgr->InitOutdoorPvP();
+
+    ///- Initialize Battlefield
+    LOG_INFO("server.loading", "Starting Battlefield System");
+    sBattlefieldMgr->InitBattlefield();
+
+    LOG_INFO("server.loading", "Loading Transports...");
+    sTransportMgr->SpawnContinentTransports();
+
+    // (the checks of the warden come from the world database; their actions can be overridden in the characters database)
+    sWardenCheckMgr->LoadWardenChecks();
+    LOG_INFO("server.loading", "Loading Warden Action Overrides..." );
+    sWardenCheckMgr->LoadWardenOverrides();
+
+    InitResetTimes();
+
+    LOG_INFO("server.loading", "Load Petitions...");
+    sPetitionMgr->LoadPetitions();
+
+    LOG_INFO("server.loading", "Load Petition Signs...");
+    sPetitionMgr->LoadSignatures();
+
+    LOG_INFO("server.loading", "Load Stored Loot Items...");
+    sLootItemStorage->LoadStorageFromDB();
+
+    LOG_INFO("server.loading", "Load Channel Rights...");
+    ChannelMgr::LoadChannelRights();
+
+    LOG_INFO("server.loading", "Load Channels...");
+    ChannelMgr::LoadChannels();
+
+    _realmBound = true;
+    _realmBoundOnce = true;
+    LOG_INFO("server.loading", ">> Realm {} ({}) bound in {} ms", realmId, realm.Name, GetMSTimeDiffToNow(oldMSTime));
+    LOG_INFO("server.loading", " ");
+
+    sScriptMgr->OnAfterRealmBind(realmId);
+}
+
+// Unbinds the realm: what BindRealm loaded is forgotten, in the opposite order. Nobody is in the world (RequestRealmBind waits for that).
+void World::UnbindRealm()
+{
+    ASSERT(_realmBound);
+    uint32 oldMSTime = getMSTime();
+    LOG_INFO("server.loading", " ");
+    LOG_INFO("server.loading", "Unbinding realm {}...", realm.Id.Realm);
+
+    sScriptMgr->OnBeforeRealmUnbind(realm.Id.Realm);
+
+    // what stands on the maps goes while the maps are there
+    sBattlefieldMgr->Unload();
+    sOutdoorPvPMgr->Unload();
+    sWorldState->Unload();
+    sGameEventMgr->UnloadRealmData();
+    sPoolMgr->DespawnQuestPools();
+
+    // the maps hold the respawn times, the corpses, the instances and the transports of the realm
+    sMapMgr->UnloadAll();
+    sScriptMgr->OnAfterUnloadAllMaps();
+
+    ChannelMgr::UnloadChannels();
+    sLootItemStorage->Unload();
+    sPetitionMgr->Unload();
+    sCalendarMgr->Unload();
+    AddonMgr::Unload();
+    sTicketMgr->Unload();
+    sGroupMgr->Unload();
+    sArenaTeamMgr->Unload();
+    sGuildMgr->Unload();
+    sAuctionMgr->Unload();
+    sInstanceSaveMgr->Unload();
+    sAchievementMgr->UnloadCompletedAchievements();
+    sCharacterCache->Unload();
+
+    _realmBound = false;
+    LOG_INFO("server.loading", ">> Realm unbound in {} ms", GetMSTimeDiffToNow(oldMSTime));
+    LOG_INFO("server.loading", " ");
+}
+
+void World::RequestRealmBind(uint32 realmId, std::function<void(bool)> done)
+{
+    std::lock_guard<std::mutex> guard(_realmRequestMutex);
+    _realmRequests.push_back({ realmId, std::move(done), 0 });
+}
+
+// On the world thread, before the update: a request is carried out when no session is left (a client that left the realm may still have its session for
+// a moment), and given up after half a minute
+void World::UpdateRealmRequests(uint32 diff)
+{
+    std::vector<RealmRequest> requests;
+    {
+        std::lock_guard<std::mutex> guard(_realmRequestMutex);
+        if (_realmRequests.empty())
+            return;
+
+        requests.swap(_realmRequests);
+    }
+
+    uint32 const target = requests.front().Realm;
+    bool const same = _realmBound && realm.Id.Realm == target;
+    bool const free = sWorldSessionMgr->GetActiveSessionCount() == 0;
+    std::vector<RealmRequest> waiting;
+    bool done = same;
+    bool ok = same;
+    if (!same && free)
+    {
+        // The players that left stay in the world for a while (offline sessions keep them, so that a lost connection costs nothing): they are logged out now,
+        // while their realm is still bound
+        sWorldSessionMgr->KickAll();
+        sWorldSessionMgr->UpdateSessions(1);
+        UnbindRealm();
+        BindRealm(target);
+        done = true;
+        ok = _realmBound;
+    }
+
+    for (RealmRequest& request : requests)
+    {
+        request.Waited += diff;
+        if (done)
+            request.Done(ok && request.Realm == realm.Id.Realm);
+        else if (request.Waited >= 30000)
+            request.Done(false);
+        else
+            waiting.push_back(std::move(request));
+    }
+
+    if (!waiting.empty())
+    {
+        std::lock_guard<std::mutex> guard(_realmRequestMutex);
+        _realmRequests.insert(_realmRequests.begin(), std::make_move_iterator(waiting.begin()), std::make_move_iterator(waiting.end()));
+    }
+}
+
 void World::Update(uint32 diff)
 {
+    UpdateRealmRequests(diff);
+
     METRIC_TIMER("world_update_time_total");
 
     ///- Update the game time and check for shutdown time

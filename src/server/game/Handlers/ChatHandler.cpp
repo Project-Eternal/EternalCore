@@ -58,6 +58,9 @@ inline bool isNasty(uint8 c)
     return false;
 }
 
+// set by a module that carries whispers to characters on other servers: true when it took the whisper
+AC_GAME_API bool (*WhisperToRemote)(Player* sender, std::string const& to, uint32 lang, std::string const& msg) = nullptr;
+
 void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
 {
     uint32 type;
@@ -396,6 +399,10 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
                 }
 
                 Player* receiver = ObjectAccessor::FindPlayerByName(to, false);
+
+                // a character of another server (mod-p2p): it has no Player object here, or a mirror that has no client; the module takes the whisper
+                if ((!receiver || receiver->IsMirror()) && WhisperToRemote && WhisperToRemote(sender, to, lang, msg))
+                    break;
                 bool senderIsPlayer = !HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHAT);
                 bool receiverIsPlayer = receiver ? !receiver->GetSession()->HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHAT) : true;
 

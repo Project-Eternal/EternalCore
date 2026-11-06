@@ -35,6 +35,7 @@ public:
     std::string GetGuildNameById(uint32 guildId) const;
 
     void LoadGuilds();
+    void Unload();   // forgets the guilds (the characters database is left); the next guild id starts again
     void AddGuild(Guild* guild);
     void RemoveGuild(uint32 guildId);
 

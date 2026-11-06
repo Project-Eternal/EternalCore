@@ -17,6 +17,7 @@
 
 #include "SocialMgr.h"
 #include "AccountMgr.h"
+#include "Config.h"
 #include "DatabaseEnv.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -26,6 +27,24 @@
 #include "WorldSession.h"
 
 PlayerSocial::PlayerSocial(): m_playerGUID() { }
+
+// the entry for a friend of the account: the rows of all its characters for that friend are replaced by one row of this character
+void PlayerSocial::WriteAccountEntry(ObjectGuid const& friendGuid, uint8 flags)
+{
+    std::string note = m_playerSocialMap.count(friendGuid) ? m_playerSocialMap[friendGuid].Note : std::string();
+    CharacterDatabase.EscapeString(note);
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    trans->Append("DELETE FROM character_social WHERE friend = {} AND guid IN (SELECT guid FROM characters WHERE account = {})", friendGuid.GetCounter(), m_accountId);
+    if (flags)
+        trans->Append("INSERT INTO character_social (guid, friend, flags, note) VALUES ({}, {}, {}, '{}')", GetPlayerGUID().GetCounter(), friendGuid.GetCounter(), flags, note);
+    CharacterDatabase.CommitTransaction(trans);
+}
+
+bool PlayerSocial::AccountWide()
+{
+    static bool const accountWide = sConfigMgr->GetOption<bool>("Social.AccountWide", false);
+    return accountWide;
+}
 
 uint32 PlayerSocial::GetNumberOfSocialsWithFlag(SocialFlag flag) const
 {
@@ -43,6 +62,18 @@ bool PlayerSocial::AddToSocialList(ObjectGuid const& friendGuid, SocialFlag flag
     // check client limits
     if (GetNumberOfSocialsWithFlag(flag) >= (((flag & SOCIAL_FLAG_FRIEND) != 0) ? SOCIALMGR_FRIEND_LIMIT : SOCIALMGR_IGNORE_LIMIT))
         return false;
+
+    if (AccountWide())
+    {
+        // one row for the entry, that of this character, with all the flags the account has for it
+        uint8 flags = flag;
+        auto known = m_playerSocialMap.find(friendGuid);
+        if (known != m_playerSocialMap.end())
+            flags |= known->second.Flags;
+        m_playerSocialMap[friendGuid].Flags = flags;
+        WriteAccountEntry(friendGuid, flags);
+        return true;
+    }
 
     auto itr = m_playerSocialMap.find(friendGuid);
     if (itr != m_playerSocialMap.end())
@@ -80,6 +111,15 @@ void PlayerSocial::RemoveFromSocialList(ObjectGuid const& friendGuid, SocialFlag
 
     itr->second.Flags &= ~flag;
 
+    if (AccountWide())
+    {
+        uint8 flags = itr->second.Flags;
+        WriteAccountEntry(friendGuid, flags);
+        if (!flags)
+            m_playerSocialMap.erase(itr);
+        return;
+    }
+
     if (itr->second.Flags == 0)
     {
         CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHARACTER_SOCIAL);
@@ -110,6 +150,16 @@ void PlayerSocial::SetFriendNote(ObjectGuid const& friendGuid, std::string note)
         return;
 
     utf8truncate(note, 48);                                  // DB and client size limitation
+
+    if (AccountWide())
+    {
+        std::string escaped = note;
+        CharacterDatabase.EscapeString(escaped);
+        CharacterDatabase.Execute("UPDATE character_social SET note = '{}' WHERE friend = {} AND guid IN (SELECT guid FROM characters WHERE account = {})",
+            escaped, friendGuid.GetCounter(), m_accountId);
+        m_playerSocialMap[friendGuid].Note = note;
+        return;
+    }
 
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER_SOCIAL_NOTE);
 
@@ -210,6 +260,9 @@ SocialMgr* SocialMgr::instance()
     return &instance;
 }
 
+// set by a module that knows friends of other servers: fills the status of a friend that is online there
+AC_GAME_API bool (*SocialRemoteFriendInfo)(ObjectGuid const& friendGuid, FriendInfo& info) = nullptr;
+
 void SocialMgr::GetFriendInfo(Player* player, ObjectGuid const& friendGUID, FriendInfo& friendInfo)
 {
     if (!player)
@@ -221,7 +274,19 @@ void SocialMgr::GetFriendInfo(Player* player, ObjectGuid const& friendGUID, Frie
     friendInfo.Class = 0;
 
     Player* pFriend = ObjectAccessor::FindConnectedPlayer(friendGUID);
-    if (!pFriend || pFriend->GetSession()->IsGMAccount())
+    if (!pFriend)
+    {
+        // a friend on another server that has no Player object here (mod-p2p)
+        if (SocialRemoteFriendInfo)
+        {
+            auto const& note = player->GetSocial()->m_playerSocialMap.find(friendGUID);
+            if (note != player->GetSocial()->m_playerSocialMap.end())
+                friendInfo.Note = note->second.Note;
+            SocialRemoteFriendInfo(friendGUID, friendInfo);
+        }
+        return;
+    }
+    if (pFriend->GetSession()->IsGMAccount())
         return;
 
     TeamId teamId = player->GetTeamId();

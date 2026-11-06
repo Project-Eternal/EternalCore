@@ -21,6 +21,7 @@
 #include "Battleground.h"
 #include "CellImpl.h"
 #include "CharmInfo.h"
+#include "Creature.h"
 #include "Common.h"
 #include "GameTime.h"
 #include "GridNotifiers.h"
@@ -1133,6 +1134,14 @@ void AuraEffect::PeriodicTick(AuraApplication* aurApp, Unit* caster) const
         return;
 
     Unit* target = aurApp->GetTarget();
+
+    // A mirror shows a character of another server (Player::IsMirror): what a periodic effect does to it is decided where that character lives, which has
+    // the aura as well, so the aura is only shown here
+    if (Player const* player = target->ToPlayer(); player && player->IsMirror())
+        return;
+    // the same for a puppet, a creature that another server decides: its periodic damage, healing and triggered spells run where it is decided
+    if (Creature const* creature = target->ToCreature(); creature && creature->IsPuppet())
+        return;
 
     // Update serverside orientation of tracking channeled auras on periodic update ticks
     // exclude players because can turn during channeling and shouldn't desync orientation client/server

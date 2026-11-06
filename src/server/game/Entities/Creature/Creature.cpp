@@ -737,7 +737,7 @@ void Creature::Update(uint32 diff)
         case DeathState::Dead:
         {
             time_t now = GameTime::GetGameTime().count();
-            if (m_respawnTime <= now)
+            if (m_respawnTime <= now && !_puppet)
             {
                 Respawn();
             }
@@ -791,6 +791,10 @@ void Creature::Update(uint32 diff)
             {
                 UpdatePositionData(); // -> ProcessTerrainStatusUpdate() -> UpdateMovementFlags() re-baselines m_lastMovementFlagsPos
             }
+
+            // a puppet is decided elsewhere: no threat, no AI, no regeneration
+            if (_puppet)
+                break;
 
             GetThreatMgr().Update(diff);
 
@@ -968,6 +972,28 @@ void Creature::Update(uint32 diff)
         }
 
         sScriptMgr->OnCreatureUpdate(this, diff);
+    }
+}
+
+void Creature::SetPuppet(bool puppet)
+{
+    if (_puppet == puppet)
+        return;
+    _puppet = puppet;
+    if (!IsInWorld())
+        return;
+    if (puppet)
+    {
+        AttackStop();
+        GetThreatMgr().ClearAllThreat();
+        GetMotionMaster()->Clear();
+        GetMotionMaster()->MoveIdle();
+        StopMoving();
+    }
+    else
+    {
+        GetMotionMaster()->InitDefault();
+        m_regenTimer = CREATURE_REGEN_INTERVAL;
     }
 }
 

@@ -60,8 +60,15 @@ CharacterCache* CharacterCache::instance()
 * @endcode
 **/
 
+void CharacterCache::Unload()
+{
+    _characterCacheByNameStore.clear();
+    _characterCacheStore.clear();
+}
+
 void CharacterCache::LoadCharacterCacheStorage()
 {
+    _characterCacheByNameStore.clear();
     _characterCacheStore.clear();
     uint32 oldMSTime = getMSTime();
 

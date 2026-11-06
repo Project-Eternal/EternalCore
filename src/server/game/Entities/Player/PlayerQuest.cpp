@@ -37,6 +37,9 @@
 /***                    QUEST SYSTEM                   ***/
 /*********************************************************/
 
+// Set by a module (mod-p2p) while it writes the quest log of a mirror from its owner's message; the core's own changes to a mirror's quest log are refused (the log is the owner's)
+AC_GAME_API thread_local bool g_mirrorQuestWrite = false;
+
 void Player::PrepareQuestMenu(ObjectGuid guid)
 {
     QuestRelationBounds objectQR;
@@ -519,6 +522,9 @@ bool Player::CanRewardQuest(Quest const* quest, uint32 reward, bool msg)
 
 void Player::AddQuest(Quest const* quest, Object* questGiver)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     uint16 log_slot = FindQuestSlot(0);
 
     if (log_slot >= MAX_QUEST_LOG_SIZE) // Player does not have any free slot in the quest log
@@ -610,6 +616,9 @@ void Player::AddQuest(Quest const* quest, Object* questGiver)
 
 void Player::CompleteQuest(uint32 quest_id)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (!quest_id)
     {
         return;
@@ -657,6 +666,9 @@ void Player::CompleteQuest(uint32 quest_id)
 
 void Player::IncompleteQuest(uint32 quest_id)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (quest_id)
     {
         SetQuestStatus(quest_id, QUEST_STATUS_INCOMPLETE);
@@ -674,6 +686,9 @@ void Player::IncompleteQuest(uint32 quest_id)
 
 void Player::RewardQuest(Quest const* quest, uint32 reward, Object* questGiver, bool announce, bool isLFGReward)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     //this THING should be here to protect code from quest, which cast on player far teleport as a reward
     //should work fine, cause far teleport will be executed in Player::Update()
     SetMustDelayTeleport(true);
@@ -905,12 +920,18 @@ void Player::RewardQuest(Quest const* quest, uint32 reward, Object* questGiver, 
 
 void Player::SetRewardedQuest(uint32 quest_id)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     m_RewardedQuests.insert(quest_id);
     m_RewardedQuestsSave[quest_id] = true;
 }
 
 void Player::FailQuest(uint32 questId)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(questId))
     {
         QuestStatus qStatus = GetQuestStatus(questId);
@@ -970,6 +991,9 @@ void Player::FailQuestsOnDeath()
 
 void Player::AbandonQuest(uint32 questId)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(questId))
     {
         // It will Destroy quest items on quests abandons.
@@ -1552,6 +1576,9 @@ bool Player::CanShareQuest(uint32 quest_id) const
 
 void Player::SetQuestStatus(uint32 questId, QuestStatus status, bool update /*= true*/)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(questId))
     {
         m_QuestStatus[questId].Status = status;
@@ -1586,6 +1613,9 @@ void Player::RemoveActiveQuest(uint32 questId, bool update /*= true*/)
 
 void Player::RemoveRewardedQuest(uint32 questId, bool update /*= true*/)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     RewardedQuestSet::iterator rewItr = m_RewardedQuests.find(questId);
     if (rewItr != m_RewardedQuests.end())
     {
@@ -1864,6 +1894,9 @@ uint16 Player::FindQuestSlot(uint32 quest_id) const
 
 void Player::AreaExploredOrEventHappens(uint32 questId)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (questId)
     {
         uint16 log_slot = FindQuestSlot(questId);
@@ -1891,6 +1924,9 @@ void Player::AreaExploredOrEventHappens(uint32 questId)
 //not used in Trinityd, function for external script library
 void Player::GroupEventHappens(uint32 questId, WorldObject const* pEventObject)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     if (Group* group = GetGroup())
     {
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
@@ -1908,6 +1944,9 @@ void Player::GroupEventHappens(uint32 questId, WorldObject const* pEventObject)
 
 void Player::ItemAddedQuestCheck(uint32 entry, uint32 count)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         uint32 questid = GetQuestSlotQuestId(i);
@@ -1947,6 +1986,9 @@ void Player::ItemAddedQuestCheck(uint32 entry, uint32 count)
 
 void Player::ItemRemovedQuestCheck(uint32 entry, uint32 count)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         uint32 questid = GetQuestSlotQuestId(i);
@@ -2000,6 +2042,10 @@ void Player::KilledMonster(CreatureTemplate const* cInfo, ObjectGuid guid)
 
 void Player::KilledMonsterCredit(uint32 entry, ObjectGuid guid)
 {
+    // a mirror shows a character of another server: its quest log is that server's, the credit is counted there
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     uint16 addkillcount = 1;
     uint32 real_entry = entry;
     if (guid)
@@ -2068,6 +2114,9 @@ void Player::KilledMonsterCredit(uint32 entry, ObjectGuid guid)
 
 void Player::KilledPlayerCredit(uint16 count)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         uint32 questid = GetQuestSlotQuestId(i);
@@ -2185,6 +2234,9 @@ void Player::KillCreditGO(uint32 entry, ObjectGuid guid)
 
 void Player::TalkedToCreature(uint32 entry, ObjectGuid guid)
 {
+    if (IsMirror() && !g_mirrorQuestWrite)
+        return;
+
     uint16 addTalkCount = 1;
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {

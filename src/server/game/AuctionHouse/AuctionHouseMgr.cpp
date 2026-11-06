@@ -320,6 +320,18 @@ void AuctionHouseMgr::SendAuctionCancelledToBidderMail(AuctionEntry* auction, Ch
     }
 }
 
+void AuctionHouseMgr::Unload()
+{
+    _hordeAuctions.Clear();
+    _allianceAuctions.Clear();
+    _neutralAuctions.Clear();
+
+    for (auto const& [guid, item] : _mAitems)
+        delete item;
+
+    _mAitems.clear();
+}
+
 void AuctionHouseMgr::LoadAuctionItems()
 {
     uint32 oldMSTime = getMSTime();
@@ -513,6 +525,14 @@ bool AuctionHouseObject::RemoveAuction(AuctionEntry* auction)
     auction = nullptr;
 
     return wasInMap;
+}
+
+void AuctionHouseObject::Clear()
+{
+    while (!_auctionsMap.empty())
+        RemoveAuction(_auctionsMap.begin()->second);
+
+    _next = _auctionsMap.begin();
 }
 
 void AuctionHouseObject::Update()

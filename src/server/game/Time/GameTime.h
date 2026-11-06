@@ -54,6 +54,12 @@ namespace GameTime
         return (Now() - start) >= duration;
     }
 
+    /// UTC in milliseconds as the world sees it: the system clock plus a correction. A module that keeps the clock of several servers in
+    /// agreement (mod-p2p) sets the source of the correction; the game time above follows it, so that everything periodic follows UTC alike
+    /// on every server. The correction must change smoothly: the game time is never stepped back by more than the clock itself runs.
+    AC_GAME_API int64 GetNetworkTimeMS();
+    AC_GAME_API void SetClockCorrection(int64 (*correction)());
+
     /// Update all timers
     void UpdateGameTimers();
 }

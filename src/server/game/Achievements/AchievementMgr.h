@@ -419,6 +419,7 @@ public:
     void LoadAchievementCriteriaData();
     void LoadAchievementReferenceList();
     void LoadCompletedAchievements();
+    void UnloadCompletedAchievements();   // no realm first is completed any more (the keys stay: see LoadCompletedAchievements)
     void LoadRewards();
     void LoadRewardLocales();
 

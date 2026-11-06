@@ -21,7 +21,7 @@
 #include <array>
 #include <random>
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(__EMSCRIPTEN__)
 #if defined(__clang__)
     #include <mm_malloc.h>
 #elif defined(__GNUC__)

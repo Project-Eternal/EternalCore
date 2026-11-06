@@ -193,6 +193,9 @@ WorldSession::~WorldSession()
         LoginDatabase.Execute("UPDATE account SET online = 0 WHERE id = {};", GetAccountId());     // One-time query
 }
 
+// Set by a module (mod-p2p): told before and after the core handles a packet of a player in the world (begin true/false), so that it can open and close the scope of an act
+AC_GAME_API void (*PacketHandling)(WorldSession* session, WorldPacket const& packet, bool begin) = nullptr;
+
 void WorldSession::UpdateAccountFlag(uint32 flag, bool remove /*= flase*/)
 {
     if (remove)
@@ -461,7 +464,17 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
                         if (!sScriptMgr->CanPacketReceive(this, *packet))
                             break;
 
-                        opHandle->Call(this, *packet);
+                        {
+                            // closes the module's scope of the packet even when the handler throws
+                            struct PacketHandlingGuard
+                            {
+                                PacketHandlingGuard(WorldSession* s, WorldPacket const& p) : _s(s), _p(p) { if (PacketHandling) PacketHandling(_s, _p, true); }
+                                ~PacketHandlingGuard() { if (PacketHandling) PacketHandling(_s, _p, false); }
+                                WorldSession* _s;
+                                WorldPacket const& _p;
+                            } packetHandlingGuard(this, *packet);
+                            opHandle->Call(this, *packet);
+                        }
                         LogUnprocessedTail(packet);
                     }
 

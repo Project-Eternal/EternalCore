@@ -38,6 +38,7 @@ public:
     ObjectGuid::LowType GenerateGroupId();
 
     void LoadGroups();
+    void Unload();   // forgets the groups and their ids
     void AddGroup(Group* group);
     void RemoveGroup(Group* group);
 

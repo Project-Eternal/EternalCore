@@ -22,6 +22,7 @@
 #include "Log.h"
 #include "MMapMgr.h"
 #include "Map.h"
+#include "MapDataProvider.h"
 #include "Metric.h"
 #include "Player.h"
 #include "WorldSession.h"
@@ -183,6 +184,21 @@ bool PathGenerator::CalculatePath(float x, float y, float z, float destX, float 
     UpdateFilter();
 
     BuildPolyPath(start, dest);
+
+    // what the navigation mesh may not know (a map data provider's check): the path ends where it is blocked
+    if (MapDataProvider* provider = MapDataProvider::Get())
+    {
+        std::size_t segment;
+        G3D::Vector3 stop;
+        if (!(_type & PATHFIND_NOPATH) && _pathPoints.size() >= 2 && provider->CheckPath(_source->GetMapId(), _pathPoints, segment, stop) &&
+            segment + 1 < _pathPoints.size())
+        {
+            _pathPoints.resize(segment + 2);
+            _pathPoints[segment + 1] = stop;
+            SetActualEndPosition(stop);
+            _type = PATHFIND_INCOMPLETE;
+        }
+    }
     return true;
 }
 

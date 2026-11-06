@@ -25,6 +25,9 @@
 
 #include "ScriptMgr.h"
 
+// Set by a module: true for a creature whose idle movement the module drives (the core's waypoint and random generators are not started for it)
+AC_GAME_API bool (*ClockDrivenMovement)(Creature const*) = nullptr;
+
 namespace FactorySelector
 {
     template <class T, class Value>
@@ -93,7 +96,12 @@ namespace FactorySelector
         MovementGeneratorType type = IDLE_MOTION_TYPE;
         if (Creature* creature = unit->ToCreature())
             if (!creature->GetCharmerOrOwnerPlayerOrPlayerItself())
+            {
                 type = creature->GetDefaultMovementType();
+                // a module may drive the idle movement of a creature itself (mod-p2p: a patrol or a wandering creature moves by the network clock)
+                if (type != IDLE_MOTION_TYPE && ClockDrivenMovement && ClockDrivenMovement(creature))
+                    type = IDLE_MOTION_TYPE;
+            }
 
         MovementGeneratorCreator const* mv_factory = sMovementGeneratorRegistry->GetRegistryItem(type);
         return ASSERT_NOTNULL(mv_factory)->Create(unit);

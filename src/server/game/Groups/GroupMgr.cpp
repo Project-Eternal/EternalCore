@@ -19,6 +19,7 @@
 #include "Common.h"
 #include "DBCStores.h"
 #include "InstanceSaveMgr.h"
+#include "LFGMgr.h"
 #include "Log.h"
 #include "World.h"
 
@@ -37,6 +38,19 @@ GroupMgr* GroupMgr::instance()
 {
     static GroupMgr instance;
     return &instance;
+}
+
+void GroupMgr::Unload()
+{
+    for (auto const& [id, group] : GroupStore)
+    {
+        sLFGMgr->RemoveGroupData(group->GetGUID());
+        delete group;
+    }
+
+    GroupStore.clear();
+    _groupIds.clear();
+    _nextGroupId = 0;
 }
 
 void GroupMgr::InitGroupIds()

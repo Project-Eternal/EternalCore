@@ -182,9 +182,34 @@ void SmartScript::ProcessEventsFor(SMART_EVENT e, Unit* unit, uint32 var0, uint3
     }
 }
 
+// Set by a module (mod-p2p): asked before every script action (begin true) and told when it ended (begin false, the result is ignored). False at the beginning for an
+// action that changes something another server owns (a copy of a creature that another server decides, a character of another server): the action is ignored here
+AC_GAME_API bool (*ReactionAction)(Creature* me, Unit* invoker, uint32 actionType, bool begin) = nullptr;
+
+namespace
+{
+    struct ReactionActionGuard
+    {
+        ReactionActionGuard(Creature* me, Unit* invoker, uint32 type) : _me(me), _invoker(invoker), _type(type), _active(ReactionAction != nullptr)
+        {
+            _allowed = !_active || ReactionAction(me, invoker, type, true);
+        }
+        ~ReactionActionGuard() { if (_active) ReactionAction(_me, _invoker, _type, false); }
+        Creature* _me;
+        Unit* _invoker;
+        uint32 _type;
+        bool _active;
+        bool _allowed;
+    };
+}
+
 void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, uint32 var1, bool bvar, SpellInfo const* spell, GameObject* gob)
 {
     e.runOnce = true;//used for repeat check
+
+    ReactionActionGuard reactionGuard(me, unit, e.GetActionType());
+    if (!reactionGuard._allowed)
+        return;
 
     //calc random
     if (e.event.event_chance < 100 && e.event.event_chance && !(e.event.event_flags & SMART_EVENT_FLAG_TEMP_IGNORE_CHANCE_ROLL))
@@ -4301,9 +4326,14 @@ void SmartScript::GetWorldObjectsInDist(ObjectVector& targets, float dist) const
     Cell::VisitObjects(obj, searcher, dist);
 }
 
+// Set by a module (mod-p2p): the cooldown of the events that a reaction to a player's act sets off, measured in the acts' network time. what 0: asks before an event is
+// processed (0 as the timer says, 1 fires although the timer still counts, 2 does not fire); what 3: the event fired and its timer was set (e.timer is the cooldown)
+AC_GAME_API int (*ReactionEventGate)(SmartScriptHolder const& e, int what) = nullptr;
+
 void SmartScript::ProcessEvent(SmartScriptHolder& e, Unit* unit, uint32 var0, uint32 var1, bool bvar, SpellInfo const* spell, GameObject* gob)
 {
-    if (!e.active && e.GetEventType() != SMART_EVENT_LINK)
+    int gate = ReactionEventGate ? ReactionEventGate(e, 0) : 0;
+    if (gate == 2 || (!e.active && e.GetEventType() != SMART_EVENT_LINK && gate != 1))
         return;
 
     if ((e.event.event_phase_mask && !IsInPhase(e.event.event_phase_mask)) || ((e.event.event_flags & SMART_EVENT_FLAG_NOT_REPEATABLE) && e.runOnce))
@@ -5138,6 +5168,8 @@ void SmartScript::RecalcTimer(SmartScriptHolder& e, uint32 min, uint32 max)
     // min/max was checked at loading!
     e.timer = urand(uint32(min), uint32(max));
     e.active = e.timer ? false : true;
+    if (ReactionEventGate)
+        ReactionEventGate(e, 3);
 }
 
 void SmartScript::UpdateTimer(SmartScriptHolder& e, uint32 const diff)

@@ -37,6 +37,8 @@ public:
 
     // create battlefield events
     void InitBattlefield();
+    // forgets the battlefields: the maps must still be there
+    void Unload();
     // called when a player enters a battlefield area
     void HandlePlayerEnterZone(Player* player, uint32 areaflag);
     // called when player leaves a battlefield area

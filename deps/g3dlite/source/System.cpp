@@ -79,7 +79,7 @@
 #endif
 
 // SIMM include
-#if !defined(__aarch64__)
+#if !defined(__aarch64__) && !defined(__EMSCRIPTEN__)
 #include <xmmintrin.h>
 #endif
 
@@ -1698,7 +1698,7 @@ void System::cpuid(CPUIDFunction func, uint32& eax, uint32& ebx, uint32& ecx, ui
 	edx = regs[3];
 }
 
-#elif defined(__aarch64__) || defined(G3D_OSX) && ! defined(G3D_OSX_INTEL)
+#elif defined(__aarch64__) || defined(__EMSCRIPTEN__) || defined(G3D_OSX) && ! defined(G3D_OSX_INTEL)
 
 // non-x86 CPU; no CPUID
 void System::cpuid(CPUIDFunction func, uint32& eax, uint32& ebx, uint32& ecx, uint32& edx) {

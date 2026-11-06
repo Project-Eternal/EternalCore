@@ -36,6 +36,11 @@ LootItemStorage* LootItemStorage::instance()
     return &instance;
 }
 
+void LootItemStorage::Unload()
+{
+    lootItemStore.clear();
+}
+
 void LootItemStorage::LoadStorageFromDB()
 {
     uint32 oldMSTime = getMSTime();

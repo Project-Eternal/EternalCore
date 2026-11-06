@@ -37,6 +37,8 @@ enum WorldHook
     WORLDHOOK_ON_AFTER_UNLOAD_ALL_MAPS,
     WORLDHOOK_ON_BEFORE_FINALIZE_PLAYER_WORLD_SESSION,
     WORLDHOOK_ON_BEFORE_WORLD_INITIALIZED,
+    WORLDHOOK_ON_BEFORE_REALM_UNBIND,
+    WORLDHOOK_ON_AFTER_REALM_BIND,
     WORLDHOOK_END
 };
 
@@ -92,6 +94,22 @@ public:
      * @brief This hook runs after all scripts loading and before itialized
      */
     virtual void OnBeforeWorldInitialized() { }
+
+    /**
+     * @brief The server is about to forget the realm it is bound to (World.RealmSwitch.Enable): nobody is in the world. Called first, while everything still stands:
+     * a module lets go of what it holds for the realm (its own tables, the objects it made, its rooms and links).
+     *
+     * @param realmId The realm that is left.
+     */
+    virtual void OnBeforeRealmUnbind(uint32 /*realmId*/) { }
+
+    /**
+     * @brief The server is bound to a realm: its characters database is open, everything the core loads from it is loaded. Called last, at the end of the start
+     * when the realm is the first one.
+     *
+     * @param realmId The realm that is bound.
+     */
+    virtual void OnAfterRealmBind(uint32 /*realmId*/) { }
 };
 
 #endif
